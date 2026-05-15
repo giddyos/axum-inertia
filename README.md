@@ -4,37 +4,81 @@
 [![Build Status](https://github.com/stuarth/inertia-rs/workflows/CI/badge.svg)](https://github.com/stuarth/inertia-rs/actions)
 [![docs.rs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat)](https://docs.rs/inertia_rs/)
 
-[Inertia.js](https://inertiajs.com/) adapter support for Rust web applications. The crate currently provides a Rocket integration.
+[Inertia.js](https://inertiajs.com/) adapter support for Rust web
+applications. The crate provides built-in Rocket and Axum integrations on top
+of a framework-neutral Inertia protocol core.
 
 Inertia lets you build server-driven applications that render client-side pages without adding a separate API or client-side router. Your Rust routes return page components and props; the Inertia client handles navigation and page swaps in the browser.
 
 ## Status
 
-`inertia_rs` currently supports the core Rocket response flow:
+`inertia_rs` currently supports the core Inertia response flow for Rocket and
+Axum:
 
 - HTML first-page responses.
 - JSON Inertia responses with `X-Inertia: true`.
 - Asset version checks with `X-Inertia-Version`.
 - `409 Conflict` responses with `X-Inertia-Location` for stale assets.
 - Inertia v3 page-object metadata and response filtering for partial reloads, merge props, deferred prop keys, once props, history flags, and infinite-scroll metadata.
+- Framework-neutral `InertiaProps` for synchronous lazy, optional, deferred, and once prop resolvers.
+- Shared props with request-aware providers.
+- External-location and method-aware redirect helpers.
 
-Shared application state helpers, redirect helpers, lazy or async prop resolvers, SSR, and non-Rocket framework integrations are planned but not fully implemented yet.
+The adapter surfaces are intentionally small:
+
+- Rocket uses `Inertia<T>` responders, `VersionFairing`, `SharedProps`, and
+  `InertiaHeaders`.
+- Axum uses `InertiaRequest`, `VersionLayer`, `SharedProps`, and ordinary Axum
+  responses.
+
+Async prop resolvers and SSR are planned but not fully implemented yet.
 
 The minimum supported Rust version is 1.88.
 
+## Protocol Support
+
+The canonical Rocket and Axum support matrix lives in
+[`docs/protocol-support.md`](docs/protocol-support.md). It tracks adapter
+support, known partial areas, and representative tests for each protocol
+feature.
+
 ## Installation
 
-Add the crate to your `Cargo.toml`:
+Choose the adapter feature that matches your web framework. Rocket is the
+default feature, but using an explicit feature keeps the dependency intent
+clear.
+
+For Rocket applications:
 
 ```toml
 [dependencies]
-inertia_rs = { version = "0.3.0", features = ["rocket"] }
+inertia_rs = { version = "0.3.0", default-features = false, features = ["rocket"] }
 rocket = { version = "0.5.1", features = ["json"] }
 
 [dependencies.rocket_dyn_templates]
 version = "0.2.0"
 features = ["handlebars"]
 ```
+
+For Axum applications:
+
+```toml
+[dependencies]
+inertia_rs = { version = "0.3.0", default-features = false, features = ["axum"] }
+axum = "0.8.9"
+```
+
+## Examples
+
+The examples are the best starting point when wiring a frontend bundle to a
+Rust route:
+
+| Example | What It Shows |
+| --- | --- |
+| [`examples/rocket-svelte`](examples/rocket-svelte) | Rocket + Svelte 5 + Vite with shared props, deferred props, optional props, partial reloads, and manifest-derived asset versioning. |
+| [`examples/axum-svelte`](examples/axum-svelte) | Axum + Svelte 5 + Vite with the same full-stack Inertia flow. |
+| [`examples/rocket-minimal`](examples/rocket-minimal) | Minimal Rocket HTML and JSON Inertia responses. |
+| [`examples/axum-minimal`](examples/axum-minimal) | Minimal Axum HTML and JSON Inertia responses. |
 
 ## Rocket Usage
 
@@ -75,6 +119,26 @@ fn rocket() -> _ {
 }
 ```
 
+Use `VersionFairing::dynamic` when the asset version should be loaded or
+computed while the server is running. The provider runs during request
+handling, so keep it fast and avoid blocking I/O; load files or manifests
+outside the provider and read a cached value here.
+
+```rust
+let asset_version = std::sync::Arc::new(std::sync::RwLock::new(String::from("asset-version-1")));
+let version_for_requests = asset_version.clone();
+
+let fairing = VersionFairing::dynamic(
+    move || {
+        version_for_requests
+            .read()
+            .map(|version| version.clone())
+            .unwrap_or_default()
+    },
+    |request, ctx| Template::render("app", ctx).respond_to(request),
+);
+```
+
 Your root HTML template receives `data_page`, a JSON-serialized Inertia page object escaped for safe use in a `<script>` tag. With Handlebars, the template can expose it to the frontend app like this. The `script_path` value below is an application-level value, typically read from a Vite manifest.
 
 ```html
@@ -92,7 +156,54 @@ Your root HTML template receives `data_page`, a JSON-serialized Inertia page obj
 </html>
 ```
 
-The repository includes a Rocket + Svelte 5 + Vite example under `examples/rocket-svelte`.
+See [`examples/rocket-svelte`](examples/rocket-svelte) for a full Rocket +
+Svelte 5 + Vite example, and
+[`examples/rocket-minimal`](examples/rocket-minimal) for a smaller protocol
+example.
+
+## Axum Usage
+
+`axum::InertiaRequest` extracts the parsed Inertia request context, current URI, request method, and optional asset version. Add `axum::VersionLayer` to install asset-version checks and include the active version in page objects. Axum routes render through `InertiaRequest::render`, which returns a normal Axum `Response`.
+
+```rust
+use axum::response::{Html, IntoResponse, Response};
+use axum::routing::get;
+use axum::{Extension, Router};
+use inertia_rs::axum::{InertiaError, InertiaRequest, SharedProps, VersionLayer};
+use inertia_rs::Inertia;
+
+#[derive(serde::Serialize)]
+struct Hello {
+    name: String,
+}
+
+async fn hello(request: InertiaRequest) -> Result<Response, InertiaError> {
+    request.render(
+        Inertia::response("Hello", Hello { name: "world".into() }),
+        // data_page is already escaped for safe embedding in a script element.
+        |ctx| Html(format!(r#"<script data-page="app" type="application/json">{}</script>"#, ctx.data_page())).into_response(),
+    )
+}
+
+let app = Router::new()
+    .route("/hello", get(hello))
+    .layer(Extension(SharedProps::new().value("appName", "Demo")))
+    .layer(VersionLayer::new("asset-version-1"));
+```
+
+Use `VersionLayer::dynamic` when the asset version should be loaded or
+computed while the server is running. As with Rocket, keep the provider fast
+and read a cached value rather than doing blocking I/O in the provider.
+
+```rust
+let app = Router::new()
+    .route("/hello", get(hello))
+    .layer(VersionLayer::dynamic(|| "asset-version-1".to_owned()));
+```
+
+See [`examples/axum-svelte`](examples/axum-svelte) for a full Axum + Svelte 5 +
+Vite example, and [`examples/axum-minimal`](examples/axum-minimal) for a
+smaller protocol example.
 
 ## Inertia v3 Protocol Helpers
 
@@ -102,7 +213,7 @@ The simple API remains the shortest path for standard pages:
 Inertia::response("Users/Index", props)
 ```
 
-For v3 page metadata, chain explicit helpers on the response or use the `Inertia::page(...).props(...)` builder. Deferred props are listed in `deferredProps` and omitted until an Inertia partial reload explicitly requests them; this crate does not yet provide lazy async prop resolvers. `share()` only marks `sharedProps` metadata and does not register global shared application state.
+For v3 page metadata, chain explicit helpers on the response or use the `Inertia::page(...).props(...)` builder. Deferred props are listed in `deferredProps` and omitted until an Inertia partial reload explicitly requests them. When props are ordinary serializable values, they are serialized before filtering. Use `InertiaProps` when expensive synchronous values should only be resolved after the request headers determine they are needed. `share()` marks `sharedProps` metadata, while the Rocket and Axum integrations can register shared application state as shown below.
 
 ```rust
 Inertia::response("Users/Index", props)
@@ -120,17 +231,117 @@ Inertia::page("Users/Index")
     .props(props)
 ```
 
+```rust
+use inertia_rs::{Inertia, InertiaProps};
+
+let props = InertiaProps::new()
+    .value("user", user)
+    .lazy("companies", || load_companies())
+    .optional("auditTrail", || load_audit_trail())
+    .defer("analytics", || load_analytics())
+    .once("plans", || load_plans());
+
+Inertia::response("Users/Index", props)
+```
+
+For immediate rendering paths that borrow local values, use
+`ScopedInertiaProps`.
+
 The root crate also exposes framework-neutral protocol types:
 
 ```rust
 use inertia_rs::{Page, PageMetadata, RequestContext};
 ```
 
-Rocket responses use these types internally. `RequestContext` parses Inertia headers such as `X-Inertia-Partial-Data`, `X-Inertia-Partial-Except`, `X-Inertia-Reset`, and `X-Inertia-Except-Once-Props`.
+Rocket and Axum responses use these types internally. `RequestContext` parses Inertia headers such as `X-Inertia-Partial-Data`, `X-Inertia-Partial-Except`, `X-Inertia-Reset`, and `X-Inertia-Except-Once-Props`.
+
+## Shared Props
+
+For Rocket, register `rocket::SharedProps` as managed state to merge common application data into every page response.
+
+```rust
+use inertia_rs::rocket::SharedProps;
+
+let shared_props = SharedProps::new()
+    .value("appName", "My App")
+    .prop("auth.csrfToken", |request| {
+        request.headers().get_one("X-CSRF").map(ToOwned::to_owned)
+    });
+
+let rocket = rocket::build().manage(shared_props);
+```
+
+Axum apps can register `axum::SharedProps` through an `Extension` layer. Providers receive the extracted `InertiaRequest` and can read values inserted by other Axum layers through `request.extension::<T>()`.
+
+```rust
+use axum::{Extension, Router};
+use inertia_rs::axum::SharedProps;
+
+let shared_props = SharedProps::new()
+    .value("appName", "My App")
+    .prop("auth.user", |request| {
+        request.extension::<User>().map(|user| user.summary())
+    });
+
+let app = Router::new().layer(Extension(shared_props));
+```
+
+Use Axum's `prop_optional` when a missing value should omit the key instead of
+serializing as `null`.
+
+Shared props are shallow-merged into page props for HTML first loads and JSON Inertia responses. Route props win on key collisions, including when a route-defined root such as `auth` collides with dotted shared keys such as `auth.user`. Keys may be top-level or dotted, where `auth.user` becomes `props.auth.user`; inserted top-level keys are listed in `sharedProps`. Keep shared props small and namespace them, since they are merged after partial-reload filtering and remain included on partial reload responses. This crate intentionally keeps shared props in partial reload responses; request specific values explicitly with route props when a large shared value should be omitted from a reload.
+
+## Redirect Helpers
+
+Use `Inertia::location(url)` for external redirects from Inertia visits. Inertia requests receive a `409 Conflict` response with `X-Inertia-Location`, or `X-Inertia-Redirect` when the destination contains a fragment. Direct browser requests fall back to method-aware normal redirects.
+
+Rocket routes can return the helper directly:
+
+```rust
+#[get("/billing")]
+fn billing() -> inertia_rs::Location {
+    Inertia::location("https://billing.example.com")
+}
+```
+
+Axum routes convert it through `InertiaRequest`:
+
+```rust
+use axum::response::Response;
+use inertia_rs::axum::{InertiaError, InertiaRequest};
+use inertia_rs::Inertia;
+
+async fn billing(request: InertiaRequest) -> Result<Response, InertiaError> {
+    request.location(Inertia::location("https://billing.example.com"))
+}
+```
+
+Axum returns `InertiaError` when the redirect URL cannot be represented as a
+valid URI reference or response header.
+
+Use `Inertia::redirect(url)` for application redirects that should be method-aware. Both adapters return `302 Found` for read-style requests and `303 See Other` for `POST`, `PUT`, `PATCH`, and `DELETE`; this helper does not branch on Inertia request headers.
+
+```rust
+#[post("/users")]
+fn create_user() -> inertia_rs::Redirect {
+    Inertia::redirect("/users")
+}
+```
+
+```rust
+use axum::response::Response;
+use inertia_rs::axum::{InertiaError, InertiaRequest};
+use inertia_rs::Inertia;
+
+async fn create_user(request: InertiaRequest) -> Result<Response, InertiaError> {
+    request.redirect(Inertia::redirect("/users"))
+}
+```
 
 ## Request Helpers
 
-Rocket handlers can inspect Inertia headers through the `InertiaHeaders` request guard:
+Rocket handlers can inspect Inertia headers through the `InertiaHeaders`
+request guard:
 
 ```rust
 use inertia_rs::rocket::InertiaHeaders;
@@ -141,6 +352,20 @@ fn debug(headers: InertiaHeaders) -> String {
         "is_inertia={}, version={:?}",
         headers.is_inertia(),
         headers.version()
+    )
+}
+```
+
+Axum handlers use the `InertiaRequest` extractor for the same request context:
+
+```rust
+use inertia_rs::axum::InertiaRequest;
+
+async fn debug(request: InertiaRequest) -> String {
+    format!(
+        "is_inertia={}, version={:?}",
+        request.is_inertia(),
+        request.asset_version()
     )
 }
 ```

@@ -24,6 +24,10 @@
 #[cfg(feature = "rocket")]
 pub mod rocket;
 
+/// Axum integration for Inertia responses and asset version checks.
+#[cfg(feature = "axum")]
+pub mod axum;
+
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -88,12 +92,72 @@ pub mod headers {
     };
 }
 
+/// Context passed to framework HTML response renderers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct HtmlResponseContext {
+    data_page: String,
+}
+
+impl HtmlResponseContext {
+    /// Creates a context from a serialized page object string.
+    ///
+    /// Framework integrations construct this with script-safe JSON. If you
+    /// create it manually, make sure the value is safe for its target HTML
+    /// context.
+    pub fn new<D: Into<String>>(data_page: D) -> Self {
+        Self {
+            data_page: data_page.into(),
+        }
+    }
+
+    /// Returns the JSON-serialized Inertia page object.
+    pub fn data_page(&self) -> &str {
+        &self.data_page
+    }
+}
+
+#[cfg(any(feature = "rocket", feature = "axum"))]
+fn escape_json_for_html_script(json: &str) -> String {
+    json.chars()
+        .fold(String::with_capacity(json.len()), |mut escaped, c| {
+            match c {
+                '<' => escaped.push_str("\\u003C"),
+                '>' => escaped.push_str("\\u003E"),
+                '&' => escaped.push_str("\\u0026"),
+                '\u{2028}' => escaped.push_str("\\u2028"),
+                '\u{2029}' => escaped.push_str("\\u2029"),
+                _ => escaped.push(c),
+            }
+
+            escaped
+        })
+}
+
+#[cfg(any(feature = "rocket", feature = "axum"))]
+pub(crate) fn html_response_context<T: Serialize>(
+    page: &T,
+) -> Result<HtmlResponseContext, serde_json::Error> {
+    serde_json::to_string(page)
+        .map(|json| escape_json_for_html_script(&json))
+        .map(HtmlResponseContext::new)
+}
+
 fn is_false(value: &bool) -> bool {
     !value
 }
 
 fn empty_map<K, V>(map: &BTreeMap<K, V>) -> bool {
     map.is_empty()
+}
+
+#[derive(Clone, Debug, Default)]
+struct RouteProps(Vec<String>);
+
+// Internal responder bookkeeping should not affect protocol-level Page equality.
+impl PartialEq for RouteProps {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
 }
 
 fn prop_root(prop: &str) -> &str {
@@ -124,6 +188,12 @@ fn scroll_merge_target(prop: &str) -> String {
 fn dedup_strings(values: &mut Vec<String>) {
     let mut seen = BTreeSet::new();
     values.retain(|value| seen.insert(value.clone()));
+}
+
+fn push_unique_string(values: &mut Vec<String>, value: String) {
+    if !values.contains(&value) {
+        values.push(value);
+    }
 }
 
 fn parse_header_list(value: Option<&str>) -> Vec<String> {
@@ -331,8 +401,56 @@ fn ensure_errors_prop(props: &mut Map<String, Value>) {
         .or_insert_with(|| Value::Object(Map::new()));
 }
 
+fn insert_shared_prop_path(props: &mut Map<String, Value>, path: &[&str], value: Value) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+
+    if path.len() == 1 {
+        if props.contains_key(path[0]) {
+            return false;
+        }
+
+        props.insert(path[0].to_owned(), value);
+        return true;
+    }
+
+    let entry = props
+        .entry(path[0].to_owned())
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(nested) = entry else {
+        return false;
+    };
+
+    insert_shared_prop_path(nested, &path[1..], value)
+}
+
 fn string_set(values: &[String]) -> BTreeSet<&str> {
     values.iter().map(String::as_str).collect()
+}
+
+fn partial_reload_includes_prop(context: &RequestContext, component: &str, prop: &str) -> bool {
+    if !context.partial_reload_matches(component) {
+        return true;
+    }
+
+    let partial_excluded = string_set(context.partial_except());
+
+    if !partial_excluded.is_empty() {
+        return !partial_excluded.contains(prop);
+    }
+
+    let partial_requested = string_set(context.partial_data());
+
+    partial_requested.is_empty() || partial_requested.contains(prop)
+}
+
+fn partial_reload_explicitly_requests_prop(
+    context: &RequestContext,
+    component: &str,
+    prop: &str,
+) -> bool {
+    context.partial_reload_matches(component) && string_set(context.partial_data()).contains(prop)
 }
 
 /// Additional Inertia v3 page-object metadata.
@@ -569,11 +687,22 @@ impl PageMetadata {
 
         let included_props = props.keys().map(String::as_str).collect::<BTreeSet<_>>();
         let partial_matches = context.partial_reload_matches(component);
+        let once_excluded_props = self.once_props_excluded_by(context);
         let reset_props = if partial_matches {
             string_set(context.reset())
         } else {
             BTreeSet::new()
         };
+
+        for deferred_props in metadata.deferred_props.values_mut() {
+            deferred_props.retain(|prop| {
+                !prop_is_in_set(prop, &included_props)
+                    && !once_excluded_props.contains(prop.as_str())
+            });
+        }
+        metadata
+            .deferred_props
+            .retain(|_group, props| !props.is_empty());
 
         metadata.merge_props.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
@@ -654,6 +783,354 @@ impl OnceProp {
     /// Returns the optional expiration timestamp in milliseconds.
     pub fn expiration(&self) -> Option<u64> {
         self.expires_at
+    }
+}
+
+/// Converts a value into a filtered Inertia props object.
+///
+/// Most callers use ordinary serializable structs or maps. [`InertiaProps`]
+/// implements this trait for route-local lazy, optional, and deferred
+/// synchronous resolvers.
+pub trait IntoPageProps {
+    /// Builds the concrete JSON props object, response metadata, and route
+    /// prop roots for shared-prop collision handling.
+    fn into_page_props(
+        self,
+        component: &str,
+        request: &RequestContext,
+        metadata: PageMetadata,
+    ) -> Result<(Value, PageMetadata, Vec<String>), serde_json::Error>;
+}
+
+impl<T: Serialize> IntoPageProps for T {
+    fn into_page_props(
+        self,
+        component: &str,
+        request: &RequestContext,
+        metadata: PageMetadata,
+    ) -> Result<(Value, PageMetadata, Vec<String>), serde_json::Error> {
+        let mut props = serde_json::to_value(self)?;
+        let route_props = props
+            .as_object()
+            .map(|props| props.keys().cloned().collect())
+            .unwrap_or_default();
+
+        request.filter_props(component, &mut props, &metadata);
+        let metadata = metadata.for_response(request, component, props.as_object());
+
+        Ok((props, metadata, route_props))
+    }
+}
+
+trait PropResolver {
+    fn resolve(self: Box<Self>) -> Result<Value, serde_json::Error>;
+}
+
+impl<F, T> PropResolver for F
+where
+    F: FnOnce() -> T,
+    T: Serialize,
+{
+    fn resolve(self: Box<Self>) -> Result<Value, serde_json::Error> {
+        serde_json::to_value(self())
+    }
+}
+
+enum PropMode {
+    Standard,
+    Optional,
+    Always,
+    Deferred { group: String },
+}
+
+struct PropEntry<'props> {
+    key: String,
+    mode: PropMode,
+    once: Option<(String, OnceProp)>,
+    resolver: Box<dyn PropResolver + 'props>,
+}
+
+impl PropEntry<'_> {
+    fn apply_metadata(&self, metadata: &mut PageMetadata) {
+        match &self.mode {
+            PropMode::Always => push_unique_string(&mut metadata.always_props, self.key.clone()),
+            PropMode::Deferred { group } => {
+                let props = metadata.deferred_props.entry(group.clone()).or_default();
+                push_unique_string(props, self.key.clone());
+            }
+            PropMode::Standard | PropMode::Optional => {}
+        }
+
+        if let Some((key, once)) = &self.once {
+            metadata.once_props.insert(key.clone(), once.clone());
+        }
+    }
+
+    fn should_resolve(
+        &self,
+        component: &str,
+        request: &RequestContext,
+        metadata: &PageMetadata,
+    ) -> bool {
+        let key = self.key.as_str();
+
+        if key == "errors" {
+            return true;
+        }
+
+        let always_props = string_set(metadata.always_props());
+
+        if always_props.contains(key) {
+            return true;
+        }
+
+        let explicitly_requested = partial_reload_explicitly_requests_prop(request, component, key);
+        let deferred_props = metadata.deferred_prop_names();
+
+        if deferred_props.contains(key) && !explicitly_requested {
+            return false;
+        }
+
+        let once_excluded_props = metadata.once_props_excluded_by(request);
+
+        if once_excluded_props.contains(key) && !explicitly_requested {
+            return false;
+        }
+
+        let included_by_partial_reload = partial_reload_includes_prop(request, component, key);
+
+        if matches!(self.mode, PropMode::Optional) {
+            return explicitly_requested && included_by_partial_reload;
+        }
+
+        included_by_partial_reload
+    }
+}
+
+/// Route-local props with synchronous lazy evaluation.
+///
+/// Use this when expensive props should only be serialized once an Inertia
+/// request actually needs them. Standard lazy props are included on full
+/// visits and matching partial reloads unless excluded. Optional props are
+/// only included when explicitly requested by `X-Inertia-Partial-Data`.
+/// Deferred props emit `deferredProps` metadata and are resolved when a later
+/// partial reload requests them.
+pub type InertiaProps = ScopedInertiaProps<'static>;
+
+/// Lifetime-aware route-local props with synchronous lazy evaluation.
+///
+/// Use this variant when props are rendered immediately and resolvers need to
+/// borrow data that does not live for the full `'static` lifetime. For owned
+/// route return values, use [`InertiaProps`].
+#[derive(Default)]
+pub struct ScopedInertiaProps<'props> {
+    entries: Vec<PropEntry<'props>>,
+}
+
+impl<'props> ScopedInertiaProps<'props> {
+    /// Creates an empty lazy props container.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a standard prop value.
+    ///
+    /// The value is already computed by the caller, but serialization is still
+    /// skipped when partial reload headers omit the prop.
+    pub fn value<P, T>(self, prop: P, value: T) -> Self
+    where
+        P: Into<String>,
+        T: Serialize + 'props,
+    {
+        self.entry(prop, PropMode::Standard, None, move || value)
+    }
+
+    /// Adds a standard lazy prop.
+    ///
+    /// The resolver is called for full visits and for matching partial
+    /// reloads that include the prop.
+    pub fn lazy<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.entry(prop, PropMode::Standard, None, resolver)
+    }
+
+    /// Adds a prop that is only resolved when explicitly requested.
+    pub fn optional<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.entry(prop, PropMode::Optional, None, resolver)
+    }
+
+    /// Adds a prop that is always included, even during partial reloads.
+    pub fn always<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.entry(prop, PropMode::Always, None, resolver)
+    }
+
+    /// Adds a deferred prop in the default group.
+    pub fn defer<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.defer_group("default", prop, resolver)
+    }
+
+    /// Adds a deferred prop in `group`.
+    pub fn defer_group<G, P, F, T>(self, group: G, prop: P, resolver: F) -> Self
+    where
+        G: Into<String>,
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.entry(
+            prop,
+            PropMode::Deferred {
+                group: group.into(),
+            },
+            None,
+            resolver,
+        )
+    }
+
+    /// Adds a standard lazy prop with once-prop metadata.
+    pub fn once<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        let prop = prop.into();
+        let once = OnceProp::new(prop.clone());
+        self.entry(
+            prop.clone(),
+            PropMode::Standard,
+            Some((prop, once)),
+            resolver,
+        )
+    }
+
+    /// Adds a standard lazy prop with a custom once key.
+    pub fn once_with_key<K, F, T>(self, key: K, once: OnceProp, resolver: F) -> Self
+    where
+        K: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        let prop = once.prop().to_owned();
+        self.entry(prop, PropMode::Standard, Some((key.into(), once)), resolver)
+    }
+
+    /// Adds an optional prop with once-prop metadata.
+    pub fn optional_once<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        let prop = prop.into();
+        let once = OnceProp::new(prop.clone());
+        self.entry(
+            prop.clone(),
+            PropMode::Optional,
+            Some((prop, once)),
+            resolver,
+        )
+    }
+
+    /// Adds a deferred prop with once-prop metadata in the default group.
+    pub fn defer_once<P, F, T>(self, prop: P, resolver: F) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.defer_group_once("default", prop, resolver)
+    }
+
+    /// Adds a deferred prop with once-prop metadata in `group`.
+    pub fn defer_group_once<G, P, F, T>(self, group: G, prop: P, resolver: F) -> Self
+    where
+        G: Into<String>,
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        let prop = prop.into();
+        let once = OnceProp::new(prop.clone());
+        self.entry(
+            prop.clone(),
+            PropMode::Deferred {
+                group: group.into(),
+            },
+            Some((prop, once)),
+            resolver,
+        )
+    }
+
+    fn entry<P, F, T>(
+        mut self,
+        prop: P,
+        mode: PropMode,
+        once: Option<(String, OnceProp)>,
+        resolver: F,
+    ) -> Self
+    where
+        P: Into<String>,
+        F: FnOnce() -> T + 'props,
+        T: Serialize,
+    {
+        self.entries.push(PropEntry {
+            key: prop.into(),
+            mode,
+            once,
+            resolver: Box::new(resolver),
+        });
+        self
+    }
+}
+
+impl<'props> IntoPageProps for ScopedInertiaProps<'props> {
+    fn into_page_props(
+        self,
+        component: &str,
+        request: &RequestContext,
+        mut metadata: PageMetadata,
+    ) -> Result<(Value, PageMetadata, Vec<String>), serde_json::Error> {
+        for entry in &self.entries {
+            entry.apply_metadata(&mut metadata);
+        }
+
+        let mut props = Map::new();
+        let mut route_props = Vec::new();
+
+        for entry in self.entries {
+            let route_root = prop_root(&entry.key).to_owned();
+            push_unique_string(&mut route_props, route_root);
+
+            if entry.should_resolve(component, request, &metadata) {
+                let key = entry.key;
+                props.insert(key, entry.resolver.resolve()?);
+            }
+        }
+
+        ensure_errors_prop(&mut props);
+        let metadata = metadata.for_response(request, component, Some(&props));
+
+        Ok((Value::Object(props), metadata, route_props))
     }
 }
 
@@ -738,6 +1215,8 @@ pub struct Page<T> {
     scroll_props: BTreeMap<String, ScrollProps>,
     #[serde(skip_serializing_if = "empty_map")]
     deferred_props: BTreeMap<String, Vec<String>>,
+    #[serde(skip)]
+    route_props: RouteProps,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     rescued_props: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -774,6 +1253,7 @@ impl<T> Page<T> {
             match_props_on: metadata.match_props_on,
             scroll_props: metadata.scroll_props,
             deferred_props: metadata.deferred_props,
+            route_props: RouteProps::default(),
             rescued_props: metadata.rescued_props,
             shared_props: metadata.shared_props,
             once_props: metadata.once_props,
@@ -804,6 +1284,76 @@ impl<T> Page<T> {
     /// Returns the asset version, if present.
     pub fn asset_version(&self) -> Option<&str> {
         self.version.as_deref()
+    }
+}
+
+impl Page<Value> {
+    #[cfg(any(feature = "axum", feature = "rocket"))]
+    pub(crate) fn owns_prop_root(&self, prop: &str) -> bool {
+        let root = prop_root(prop);
+
+        if self.route_props.0.is_empty() {
+            self.props
+                .as_object()
+                .map(|props| props.contains_key(root))
+                .unwrap_or(false)
+        } else {
+            self.route_props.0.iter().any(|prop| prop == root)
+        }
+    }
+
+    /// Merges shared props into the page object.
+    ///
+    /// Existing page props take precedence when keys collide. Dotted keys are
+    /// expanded into nested objects, and inserted top-level keys are added to
+    /// the page object's `sharedProps` metadata.
+    pub fn with_shared_props<I, K>(mut self, shared_props: I) -> Self
+    where
+        I: IntoIterator<Item = (K, Value)>,
+        K: Into<String>,
+    {
+        let mut shared_props = shared_props.into_iter().peekable();
+
+        if shared_props.peek().is_none() {
+            return self;
+        }
+
+        if !self.props.is_object() {
+            self.props = Value::Object(Map::new());
+        }
+
+        let props = self
+            .props
+            .as_object_mut()
+            .expect("props was normalized to an object");
+        ensure_errors_prop(props);
+        let route_roots = if self.route_props.0.is_empty() {
+            props.keys().cloned().collect::<BTreeSet<_>>()
+        } else {
+            self.route_props.0.iter().cloned().collect()
+        };
+
+        for (key, value) in shared_props {
+            let key = key.into();
+            let path = key
+                .split('.')
+                .filter(|segment| !segment.is_empty())
+                .collect::<Vec<_>>();
+            let Some(root) = path.first() else {
+                continue;
+            };
+            let root = (*root).to_owned();
+
+            if route_roots.contains(&root) {
+                continue;
+            }
+
+            if insert_shared_prop_path(props, &path, value) && !self.shared_props.contains(&root) {
+                self.shared_props.push(root);
+            }
+        }
+
+        self
     }
 }
 
@@ -944,6 +1494,59 @@ impl Inertia<()> {
             url: None,
             metadata: PageMetadata::new(),
         }
+    }
+
+    /// Creates an external redirect response.
+    ///
+    /// Framework integrations should convert this into a `409 Conflict`
+    /// response with the destination URL in the `X-Inertia-Location` header,
+    /// or `X-Inertia-Redirect` when the destination contains a fragment.
+    pub fn location<U: Into<String>>(url: U) -> Location {
+        Location::new(url)
+    }
+
+    /// Creates a method-aware redirect response.
+    ///
+    /// Framework integrations should use `303 See Other` for write-method
+    /// requests so the follow-up request is a `GET`.
+    pub fn redirect<U: Into<String>>(url: U) -> Redirect {
+        Redirect::new(url)
+    }
+}
+
+/// A server-initiated external location visit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Location {
+    url: String,
+}
+
+impl Location {
+    /// Creates an external location redirect to `url`.
+    pub fn new<U: Into<String>>(url: U) -> Self {
+        Self { url: url.into() }
+    }
+
+    /// Returns the destination URL.
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+}
+
+/// A method-aware redirect response.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Redirect {
+    url: String,
+}
+
+impl Redirect {
+    /// Creates a redirect response to `url`.
+    pub fn new<U: Into<String>>(url: U) -> Self {
+        Self { url: url.into() }
+    }
+
+    /// Returns the redirect destination URL.
+    pub fn url(&self) -> &str {
+        &self.url
     }
 }
 
@@ -1104,7 +1707,7 @@ impl<T> Inertia<T> {
     }
 }
 
-impl<T: Serialize> Inertia<T> {
+impl<T: IntoPageProps> Inertia<T> {
     /// Builds a concrete Inertia page object.
     ///
     /// Framework integrations pass the resolved request URL, asset version,
@@ -1117,13 +1720,14 @@ impl<T: Serialize> Inertia<T> {
         request: &RequestContext,
     ) -> Result<Page<Value>, serde_json::Error> {
         let component = self.component;
-        let metadata = self.metadata;
-        let mut props = serde_json::to_value(self.props)?;
+        let (props, metadata, route_props) =
+            self.props
+                .into_page_props(&component, request, self.metadata)?;
 
-        request.filter_props(&component, &mut props, &metadata);
-        let metadata = metadata.for_response(request, &component, props.as_object());
+        let mut page = Page::from_parts(component, props, url, version, metadata);
+        page.route_props = RouteProps(route_props);
 
-        Ok(Page::from_parts(component, props, url, version, metadata))
+        Ok(page)
     }
 }
 
@@ -1131,7 +1735,9 @@ impl<T: Serialize> Inertia<T> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::cell::Cell;
     use std::collections::HashMap;
+    use std::rc::Rc;
 
     fn request_context_from(headers: &[(&str, &str)]) -> RequestContext {
         let headers = headers.iter().copied().collect::<HashMap<_, _>>();
@@ -1442,5 +2048,399 @@ mod tests {
             value["onceProps"]["billing"],
             json!({ "prop": "plans", "expiresAt": 123 })
         );
+    }
+
+    #[test]
+    fn lazy_props_are_only_resolved_when_included() {
+        let request = request_context_from(&[]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new()
+                .value("user", json!({ "name": "Ada" }))
+                .lazy("stats", {
+                    let calls = Rc::clone(&calls);
+                    move || {
+                        calls.set(calls.get() + 1);
+                        json!({ "views": 10 })
+                    }
+                }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["stats"]["views"], 10);
+
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Dashboard"),
+            (X_INERTIA_PARTIAL_DATA, "user"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new()
+                .value("user", json!({ "name": "Ada" }))
+                .lazy("stats", {
+                    let calls = Rc::clone(&calls);
+                    move || {
+                        calls.set(calls.get() + 1);
+                        json!({ "views": 10 })
+                    }
+                }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert_eq!(value["props"]["user"]["name"], "Ada");
+        assert!(value["props"].get("stats").is_none());
+    }
+
+    #[test]
+    fn lazy_props_can_borrow_values_for_immediate_rendering() {
+        let request = request_context_from(&[]);
+        let name = String::from("Ada");
+        let response = Inertia::response(
+            "Profile",
+            ScopedInertiaProps::new()
+                .value("name", &name)
+                .lazy("upperName", || name.to_uppercase()),
+        )
+        .into_page("/profile", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["props"]["name"], "Ada");
+        assert_eq!(value["props"]["upperName"], "ADA");
+    }
+
+    #[test]
+    fn optional_props_resolve_only_when_explicitly_requested() {
+        let request = request_context_from(&[]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().optional("audit", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!(["created"])
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert!(value["props"].get("audit").is_none());
+
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Dashboard"),
+            (X_INERTIA_PARTIAL_DATA, "audit"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().optional("audit", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!(["created"])
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["audit"], json!(["created"]));
+    }
+
+    #[test]
+    fn optional_props_respect_partial_except_precedence() {
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Dashboard"),
+            (X_INERTIA_PARTIAL_DATA, "audit"),
+            (X_INERTIA_PARTIAL_EXCEPT, "audit"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().optional("audit", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!(["created"])
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert!(value["props"].get("audit").is_none());
+    }
+
+    #[test]
+    fn lazy_errors_are_preserved_during_partial_reloads() {
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Form"),
+            (X_INERTIA_PARTIAL_DATA, "user"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Form",
+            InertiaProps::new()
+                .value("user", json!({ "name": "Ada" }))
+                .lazy("errors", {
+                    let calls = Rc::clone(&calls);
+                    move || {
+                        calls.set(calls.get() + 1);
+                        json!({ "name": "Required" })
+                    }
+                })
+                .lazy("stats", || 10),
+        )
+        .into_page("/form", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["user"]["name"], "Ada");
+        assert_eq!(value["props"]["errors"]["name"], "Required");
+        assert!(value["props"].get("stats").is_none());
+    }
+
+    #[test]
+    fn deferred_props_emit_metadata_and_resolve_only_when_requested() {
+        let request = request_context_from(&[]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().defer_group("metrics", "analytics", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!({ "views": 10 })
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert!(value["props"].get("analytics").is_none());
+        assert_eq!(value["deferredProps"], json!({ "metrics": ["analytics"] }));
+
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Dashboard"),
+            (X_INERTIA_PARTIAL_DATA, "analytics"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().defer_group("metrics", "analytics", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!({ "views": 10 })
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["analytics"]["views"], 10);
+        assert!(value.get("deferredProps").is_none());
+    }
+
+    #[test]
+    fn deferred_once_props_already_loaded_by_client_are_not_advertised() {
+        let request =
+            request_context_from(&[(X_INERTIA, "true"), (X_INERTIA_EXCEPT_ONCE_PROPS, "stats")]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().defer_once("stats", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    10
+                }
+            }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert!(value["props"].get("stats").is_none());
+        assert!(value.get("deferredProps").is_none());
+        assert_eq!(
+            value["onceProps"]["stats"],
+            json!({ "prop": "stats", "expiresAt": null })
+        );
+    }
+
+    #[test]
+    fn always_lazy_props_survive_partial_reload_filtering() {
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Dashboard"),
+            (X_INERTIA_PARTIAL_DATA, "users"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new()
+                .value("users", json!(["Ada"]))
+                .always("auth", {
+                    let calls = Rc::clone(&calls);
+                    move || {
+                        calls.set(calls.get() + 1);
+                        json!({ "user": { "name": "Ada" } })
+                    }
+                }),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["users"], json!(["Ada"]));
+        assert_eq!(value["props"]["auth"]["user"]["name"], "Ada");
+    }
+
+    #[test]
+    fn once_lazy_props_are_not_resolved_when_client_already_has_them() {
+        let request =
+            request_context_from(&[(X_INERTIA, "true"), (X_INERTIA_EXCEPT_ONCE_PROPS, "plans")]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Billing",
+            InertiaProps::new().once("plans", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!(["basic"])
+                }
+            }),
+        )
+        .into_page("/billing", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 0);
+        assert!(value["props"].get("plans").is_none());
+        assert_eq!(
+            value["onceProps"]["plans"],
+            json!({ "prop": "plans", "expiresAt": null })
+        );
+
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Billing"),
+            (X_INERTIA_PARTIAL_DATA, "plans"),
+            (X_INERTIA_EXCEPT_ONCE_PROPS, "plans"),
+        ]);
+        let calls = Rc::new(Cell::new(0));
+        let response = Inertia::response(
+            "Billing",
+            InertiaProps::new().once("plans", {
+                let calls = Rc::clone(&calls);
+                move || {
+                    calls.set(calls.get() + 1);
+                    json!(["basic"])
+                }
+            }),
+        )
+        .into_page("/billing", Some("version-1".into()), &request)
+        .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value["props"]["plans"], json!(["basic"]));
+    }
+
+    #[test]
+    fn lazy_route_prop_roots_block_shared_props_even_when_omitted() {
+        let request = request_context_from(&[]);
+        let response = Inertia::response(
+            "Dashboard",
+            InertiaProps::new().optional("auth", || json!({ "user": { "name": "Route" } })),
+        )
+        .into_page("/dashboard", Some("version-1".into()), &request)
+        .unwrap()
+        .with_shared_props(vec![
+            (
+                "auth.user",
+                json!({
+                    "name": "Shared"
+                }),
+            ),
+            ("appName", json!("Demo")),
+        ]);
+        let value = serde_json::to_value(response).unwrap();
+
+        assert!(value["props"].get("auth").is_none());
+        assert_eq!(value["props"]["appName"], "Demo");
+        assert_eq!(value["sharedProps"], json!(["appName"]));
+    }
+
+    #[test]
+    fn empty_shared_props_are_a_noop() {
+        let page = Page::new("Empty", Value::Null, "/empty")
+            .with_shared_props(Vec::<(&str, Value)>::new());
+        let value = serde_json::to_value(page).unwrap();
+
+        assert_eq!(value["props"], Value::Null);
+        assert!(value.get("sharedProps").is_none());
+    }
+
+    #[test]
+    fn page_equality_ignores_internal_route_prop_tracking() {
+        let request = request_context_from(&[]);
+        let response = Inertia::response(
+            "Users",
+            json!({
+                "auth": {
+                    "user": {
+                        "name": "Ada"
+                    }
+                }
+            }),
+        )
+        .into_page("/users", Some("version-1".into()), &request)
+        .unwrap();
+        let manual = Page::from_parts(
+            "Users",
+            json!({
+                "errors": {},
+                "auth": {
+                    "user": {
+                        "name": "Ada"
+                    }
+                }
+            }),
+            "/users",
+            Some("version-1".into()),
+            PageMetadata::new(),
+        );
+
+        assert_eq!(response, manual);
     }
 }
