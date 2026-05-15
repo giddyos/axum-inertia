@@ -556,14 +556,24 @@ impl PageMetadata {
             .collect()
     }
 
-    fn for_response(&self, context: &RequestContext, props: Option<&Map<String, Value>>) -> Self {
+    fn for_response(
+        &self,
+        context: &RequestContext,
+        component: &str,
+        props: Option<&Map<String, Value>>,
+    ) -> Self {
         let mut metadata = self.clone();
         let Some(props) = props else {
             return metadata;
         };
 
         let included_props = props.keys().map(String::as_str).collect::<BTreeSet<_>>();
-        let reset_props = string_set(context.reset());
+        let partial_matches = context.partial_reload_matches(component);
+        let reset_props = if partial_matches {
+            string_set(context.reset())
+        } else {
+            BTreeSet::new()
+        };
 
         metadata.merge_props.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
@@ -581,7 +591,10 @@ impl PageMetadata {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
 
-        if let Some(intent) = context.infinite_scroll_merge_intent() {
+        if let Some(intent) = partial_matches
+            .then(|| context.infinite_scroll_merge_intent())
+            .flatten()
+        {
             for prop in metadata.scroll_props.keys() {
                 let target = scroll_merge_target(prop);
 
@@ -1108,7 +1121,7 @@ impl<T: Serialize> Inertia<T> {
         let mut props = serde_json::to_value(self.props)?;
 
         request.filter_props(&component, &mut props, &metadata);
-        let metadata = metadata.for_response(request, props.as_object());
+        let metadata = metadata.for_response(request, &component, props.as_object());
 
         Ok(Page::from_parts(component, props, url, version, metadata))
     }
@@ -1362,6 +1375,28 @@ mod tests {
         assert!(value.get("mergeProps").is_none());
         assert!(value.get("matchPropsOn").is_none());
         assert!(value.get("scrollProps").is_none());
+    }
+
+    #[test]
+    fn reset_and_scroll_intent_are_ignored_when_partial_component_differs() {
+        let request = request_context_from(&[
+            (X_INERTIA, "true"),
+            (X_INERTIA_PARTIAL_COMPONENT, "Other"),
+            (X_INERTIA_PARTIAL_DATA, "posts"),
+            (X_INERTIA_RESET, "posts"),
+            (X_INERTIA_INFINITE_SCROLL_MERGE_INTENT, "prepend"),
+        ]);
+        let response = Inertia::page("Feed")
+            .scroll("posts", ScrollProps::new("page", 1).next_page(2))
+            .props(json!({ "posts": { "data": [1, 2] } }))
+            .into_page("/feed", Some("version-1".into()), &request)
+            .unwrap();
+        let value = serde_json::to_value(response).unwrap();
+
+        assert_eq!(value["props"]["posts"]["data"], json!([1, 2]));
+        assert_eq!(value["mergeProps"], json!(["posts.data"]));
+        assert_eq!(value["scrollProps"]["posts"]["nextPage"], 2);
+        assert!(value.get("prependProps").is_none());
     }
 
     #[test]

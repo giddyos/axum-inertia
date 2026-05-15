@@ -91,6 +91,9 @@ fn serialize_page_for_html<T: Serialize>(page: &T) -> Result<String, http::Statu
         .map_err(|_e| http::Status::InternalServerError)
 }
 
+#[derive(Clone)]
+struct InertiaVersion(String);
+
 fn add_vary_header<'r>(response: Response<'r>) -> Response<'r> {
     Response::build_from(response)
         .raw_header_adjoin(VARY, X_INERTIA)
@@ -104,7 +107,10 @@ impl<'r, 'o: 'r, R: Serialize> Responder<'r, 'o> for Inertia<R> {
             .url()
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| request.uri().to_string());
-        let version = request.local_cache(|| None::<String>).clone();
+        let version = request
+            .local_cache(|| None::<InertiaVersion>)
+            .clone()
+            .map(|version| version.0);
         let context = if request.method() == Method::Get {
             request_context(request)
         } else {
@@ -212,7 +218,7 @@ impl Fairing for VersionFairing<'static> {
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _: &mut Data<'_>) {
-        request.local_cache(|| Some(self.version.clone()));
+        request.local_cache(|| Some(InertiaVersion(self.version.clone())));
 
         let context = request_context(request);
 
