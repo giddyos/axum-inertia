@@ -96,6 +96,16 @@ fn empty_map<K, V>(map: &BTreeMap<K, V>) -> bool {
     map.is_empty()
 }
 
+#[derive(Clone, Debug, Default)]
+struct RouteProps(Vec<String>);
+
+// Internal responder bookkeeping should not affect protocol-level Page equality.
+impl PartialEq for RouteProps {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
 fn prop_root(prop: &str) -> &str {
     prop.split_once('.')
         .map(|(root, _suffix)| root)
@@ -763,7 +773,7 @@ pub struct Page<T> {
     #[serde(skip_serializing_if = "empty_map")]
     deferred_props: BTreeMap<String, Vec<String>>,
     #[serde(skip)]
-    route_props: Vec<String>,
+    route_props: RouteProps,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     rescued_props: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -800,7 +810,7 @@ impl<T> Page<T> {
             match_props_on: metadata.match_props_on,
             scroll_props: metadata.scroll_props,
             deferred_props: metadata.deferred_props,
-            route_props: Vec::new(),
+            route_props: RouteProps::default(),
             rescued_props: metadata.rescued_props,
             shared_props: metadata.shared_props,
             once_props: metadata.once_props,
@@ -854,10 +864,10 @@ impl Page<Value> {
             .as_object_mut()
             .expect("props was normalized to an object");
         ensure_errors_prop(props);
-        let route_roots = if self.route_props.is_empty() {
+        let route_roots = if self.route_props.0.is_empty() {
             props.keys().cloned().collect::<BTreeSet<_>>()
         } else {
-            self.route_props.iter().cloned().collect()
+            self.route_props.0.iter().cloned().collect()
         };
 
         for (key, value) in shared_props {
@@ -1257,7 +1267,7 @@ impl<T: Serialize> Inertia<T> {
         let metadata = metadata.for_response(request, &component, props.as_object());
 
         let mut page = Page::from_parts(component, props, url, version, metadata);
-        page.route_props = route_props;
+        page.route_props = RouteProps(route_props);
 
         Ok(page)
     }
@@ -1578,5 +1588,38 @@ mod tests {
             value["onceProps"]["billing"],
             json!({ "prop": "plans", "expiresAt": 123 })
         );
+    }
+
+    #[test]
+    fn page_equality_ignores_internal_route_prop_tracking() {
+        let request = request_context_from(&[]);
+        let response = Inertia::response(
+            "Users",
+            json!({
+                "auth": {
+                    "user": {
+                        "name": "Ada"
+                    }
+                }
+            }),
+        )
+        .into_page("/users", Some("version-1".into()), &request)
+        .unwrap();
+        let manual = Page::from_parts(
+            "Users",
+            json!({
+                "errors": {},
+                "auth": {
+                    "user": {
+                        "name": "Ada"
+                    }
+                }
+            }),
+            "/users",
+            Some("version-1".into()),
+            PageMetadata::new(),
+        );
+
+        assert_eq!(response, manual);
     }
 }
