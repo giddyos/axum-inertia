@@ -329,6 +329,7 @@ mod tests {
                 notifications: vec!["welcome"],
             },
         )
+        .once("plans")
     }
 
     #[get("/scrolling")]
@@ -764,6 +765,37 @@ mod tests {
         assert_eq!(
             page["props"]["notifications"],
             serde_json::json!(["welcome"])
+        );
+    }
+
+    #[test]
+    fn rocket_non_get_response_preserves_once_prop_exclusions() {
+        let client = Client::tracked(rocket()).unwrap();
+
+        let resp = client
+            .post("/write")
+            .header(Header::new(X_INERTIA, "true"))
+            .header(Header::new(X_INERTIA_PARTIAL_COMPONENT, "write"))
+            .header(Header::new(X_INERTIA_PARTIAL_DATA, "users"))
+            .header(Header::new(X_INERTIA_EXCEPT_ONCE_PROPS, "plans"))
+            .dispatch();
+
+        assert_eq!(resp.status(), Status::Ok);
+
+        let body = resp.into_string().unwrap();
+        let page: serde_json::Value = serde_json::from_str(&body).unwrap();
+
+        assert_eq!(page["props"]["errors"], serde_json::json!({}));
+        assert_eq!(page["props"]["users"], serde_json::json!(["Ada", "Grace"]));
+        assert_eq!(page["props"]["stats"], 42);
+        assert!(page["props"].get("plans").is_none());
+        assert_eq!(
+            page["props"]["notifications"],
+            serde_json::json!(["welcome"])
+        );
+        assert_eq!(
+            page["onceProps"]["plans"],
+            serde_json::json!({ "prop": "plans", "expiresAt": null })
         );
     }
 

@@ -255,14 +255,14 @@ impl RequestContext {
     /// Returns a copy with partial reload headers ignored.
     ///
     /// Framework integrations can use this for non-GET responses, where the
-    /// Inertia protocol does not apply partial reload filtering.
+    /// Inertia protocol does not apply partial reload filtering. Once-prop
+    /// exclusions are preserved because they are independent of partial reloads.
     pub fn without_partial_reload(mut self) -> Self {
         self.partial_component = None;
         self.partial_data.clear();
         self.partial_except.clear();
         self.reset.clear();
         self.infinite_scroll_merge_intent = None;
-        self.except_once_props.clear();
         self
     }
 
