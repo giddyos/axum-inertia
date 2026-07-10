@@ -1,0 +1,1 @@
+//! Shared-prop merge implementation.
