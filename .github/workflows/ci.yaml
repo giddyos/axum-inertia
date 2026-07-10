@@ -13,7 +13,17 @@ jobs:
           components: clippy, rustfmt
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test --all-targets
+      - name: Test
+        env:
+          INSTA_UPDATE: "no"
+        run: cargo test --all-targets
+      - name: Reject uncommitted snapshots
+        run: |
+          if find tests -name '*.snap.new' -print -quit | grep -q .; then
+            echo "Pending Insta snapshots were generated:"
+            find tests -name '*.snap.new' -print
+            exit 1
+          fi
       - run: cargo test --doc
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
       - run: cargo package
