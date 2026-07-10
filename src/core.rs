@@ -178,11 +178,6 @@ fn scroll_merge_target(prop: &str) -> String {
     format!("{prop}.data")
 }
 
-fn dedup_strings(values: &mut Vec<String>) {
-    let mut seen = BTreeSet::new();
-    values.retain(|value| seen.insert(value.clone()));
-}
-
 fn push_unique_string(values: &mut Vec<String>, value: String) {
     if !values.contains(&value) {
         values.push(value);
@@ -342,48 +337,65 @@ impl RequestContext {
 
         ensure_errors_prop(props);
 
+        props.retain(|key, _| {
+            key == "errors" || self.includes_prop(component, key, metadata, false)
+        });
+    }
+
+    fn includes_prop(
+        &self,
+        component: &str,
+        prop: &str,
+        metadata: &PageMetadata,
+        optional: bool,
+    ) -> bool {
+        if metadata
+            .always_props
+            .iter()
+            .any(|candidate| candidate == prop)
+        {
+            return true;
+        }
+
         let partial_matches = self.partial_reload_matches(component);
-        let partial_requested = string_set(&self.partial_data);
-        let partial_excluded = string_set(&self.partial_except);
-        let always_props = string_set(metadata.always_props());
-        let deferred_props = metadata.deferred_prop_names();
-        let once_excluded_props = metadata.once_props_excluded_by(self);
+        let explicitly_requested =
+            partial_matches && self.partial_data.iter().any(|key| key == prop);
 
-        let keys = props.keys().cloned().collect::<Vec<_>>();
+        if metadata
+            .deferred_props
+            .values()
+            .flatten()
+            .any(|candidate| candidate == prop)
+            && !explicitly_requested
+        {
+            return false;
+        }
 
-        for key in keys {
-            if key == "errors" {
-                continue;
-            }
+        if metadata.once_props.iter().any(|(key, once)| {
+            once.prop() == prop
+                && self
+                    .except_once_props
+                    .iter()
+                    .any(|excluded| excluded == key)
+        }) && !explicitly_requested
+        {
+            return false;
+        }
 
-            if always_props.contains(key.as_str()) {
-                continue;
-            }
+        let included = if !partial_matches {
+            true
+        } else if !self.partial_except.is_empty() {
+            !self.partial_except.iter().any(|key| key == prop)
+        } else if !self.partial_data.is_empty() {
+            self.partial_data.iter().any(|key| key == prop)
+        } else {
+            true
+        };
 
-            let explicitly_requested = partial_matches && partial_requested.contains(key.as_str());
-            let mut include = true;
-
-            if partial_matches {
-                include = if !partial_excluded.is_empty() {
-                    !partial_excluded.contains(key.as_str())
-                } else if !partial_requested.is_empty() {
-                    partial_requested.contains(key.as_str())
-                } else {
-                    true
-                };
-            }
-
-            if deferred_props.contains(key.as_str()) && !explicitly_requested {
-                include = false;
-            }
-
-            if once_excluded_props.contains(key.as_str()) && !explicitly_requested {
-                include = false;
-            }
-
-            if !include {
-                props.remove(&key);
-            }
+        if optional {
+            explicitly_requested && included
+        } else {
+            included
         }
     }
 }
@@ -490,31 +502,31 @@ impl PageMetadata {
 
     /// Marks a prop key to always be included during partial reloads.
     pub fn always<P: Into<String>>(mut self, prop: P) -> Self {
-        self.always_props.push(prop.into());
+        push_unique_string(&mut self.always_props, prop.into());
         self
     }
 
     /// Marks a prop key for append-style merging.
     pub fn merge<P: Into<String>>(mut self, prop: P) -> Self {
-        self.merge_props.push(prop.into());
+        push_unique_string(&mut self.merge_props, prop.into());
         self
     }
 
     /// Marks a prop key for prepend-style merging.
     pub fn prepend<P: Into<String>>(mut self, prop: P) -> Self {
-        self.prepend_props.push(prop.into());
+        push_unique_string(&mut self.prepend_props, prop.into());
         self
     }
 
     /// Marks a prop key for deep merging.
     pub fn deep_merge<P: Into<String>>(mut self, prop: P) -> Self {
-        self.deep_merge_props.push(prop.into());
+        push_unique_string(&mut self.deep_merge_props, prop.into());
         self
     }
 
     /// Adds a matching key used by merge metadata.
     pub fn match_on<P: Into<String>>(mut self, prop: P) -> Self {
-        self.match_props_on.push(prop.into());
+        push_unique_string(&mut self.match_props_on, prop.into());
         self
     }
 
@@ -525,7 +537,7 @@ impl PageMetadata {
 
         if !self.merge_props.contains(&merge_target) && !self.prepend_props.contains(&merge_target)
         {
-            self.merge_props.push(merge_target);
+            push_unique_string(&mut self.merge_props, merge_target);
         }
 
         self.scroll_props.insert(prop, scroll);
@@ -547,10 +559,8 @@ impl PageMetadata {
     /// explicitly requested by a partial reload. It does not install a lazy or
     /// async resolver.
     pub fn defer_group<G: Into<String>, P: Into<String>>(mut self, group: G, prop: P) -> Self {
-        self.deferred_props
-            .entry(group.into())
-            .or_default()
-            .push(prop.into());
+        let props = self.deferred_props.entry(group.into()).or_default();
+        push_unique_string(props, prop.into());
         self
     }
 
@@ -559,7 +569,7 @@ impl PageMetadata {
     /// This only serializes the `rescuedProps` metadata. It does not catch
     /// errors while resolving prop values.
     pub fn rescue<P: Into<String>>(mut self, prop: P) -> Self {
-        self.rescued_props.push(prop.into());
+        push_unique_string(&mut self.rescued_props, prop.into());
         self
     }
 
@@ -568,7 +578,7 @@ impl PageMetadata {
     /// This only serializes the `sharedProps` metadata. It does not register or
     /// merge global shared application state.
     pub fn share<P: Into<String>>(mut self, prop: P) -> Self {
-        self.shared_props.push(prop.into());
+        push_unique_string(&mut self.shared_props, prop.into());
         self
     }
 
@@ -667,49 +677,53 @@ impl PageMetadata {
             .collect()
     }
 
-    fn for_response(
-        &self,
+    fn into_response_metadata(
+        mut self,
         context: &RequestContext,
         component: &str,
         props: Option<&Map<String, Value>>,
     ) -> Self {
-        let mut metadata = self.clone();
         let Some(props) = props else {
-            return metadata;
+            return self;
         };
 
         let included_props = props.keys().map(String::as_str).collect::<BTreeSet<_>>();
         let partial_matches = context.partial_reload_matches(component);
-        let once_excluded_props = self.once_props_excluded_by(context);
+        let once_props = &self.once_props;
         let reset_props = if partial_matches {
             string_set(context.reset())
         } else {
             BTreeSet::new()
         };
 
-        for deferred_props in metadata.deferred_props.values_mut() {
+        for deferred_props in self.deferred_props.values_mut() {
             deferred_props.retain(|prop| {
                 !prop_is_in_set(prop, &included_props)
-                    && !once_excluded_props.contains(prop.as_str())
+                    && !once_props.iter().any(|(key, once)| {
+                        once.prop() == prop
+                            && context
+                                .except_once_props()
+                                .iter()
+                                .any(|excluded| excluded == key)
+                    })
             });
         }
-        metadata
-            .deferred_props
+        self.deferred_props
             .retain(|_group, props| !props.is_empty());
 
-        metadata.merge_props.retain(|prop| {
+        self.merge_props.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
-        metadata.prepend_props.retain(|prop| {
+        self.prepend_props.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
-        metadata.deep_merge_props.retain(|prop| {
+        self.deep_merge_props.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
-        metadata.match_props_on.retain(|prop| {
+        self.match_props_on.retain(|prop| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
-        metadata.scroll_props.retain(|prop, _scroll| {
+        self.scroll_props.retain(|prop, _scroll| {
             prop_is_in_set(prop, &included_props) && !prop_matches_reset(prop, &reset_props)
         });
 
@@ -717,31 +731,26 @@ impl PageMetadata {
             .then(|| context.infinite_scroll_merge_intent())
             .flatten()
         {
-            for prop in metadata.scroll_props.keys() {
+            for prop in self.scroll_props.keys() {
                 let target = scroll_merge_target(prop);
 
                 if intent.eq_ignore_ascii_case("prepend") {
-                    metadata.merge_props.retain(|prop| prop != &target);
+                    self.merge_props.retain(|prop| prop != &target);
 
-                    if !metadata.prepend_props.contains(&target) {
-                        metadata.prepend_props.push(target);
+                    if !self.prepend_props.contains(&target) {
+                        self.prepend_props.push(target);
                     }
                 } else if intent.eq_ignore_ascii_case("append") {
-                    metadata.prepend_props.retain(|prop| prop != &target);
+                    self.prepend_props.retain(|prop| prop != &target);
 
-                    if !metadata.merge_props.contains(&target) {
-                        metadata.merge_props.push(target);
+                    if !self.merge_props.contains(&target) {
+                        self.merge_props.push(target);
                     }
                 }
             }
         }
 
-        dedup_strings(&mut metadata.merge_props);
-        dedup_strings(&mut metadata.prepend_props);
-        dedup_strings(&mut metadata.deep_merge_props);
-        dedup_strings(&mut metadata.match_props_on);
-
-        metadata
+        self
     }
 }
 
@@ -809,7 +818,7 @@ impl<T: Serialize> IntoPageProps for T {
             .unwrap_or_default();
 
         request.filter_props(component, &mut props, &metadata);
-        let metadata = metadata.for_response(request, component, props.as_object());
+        let metadata = metadata.into_response_metadata(request, component, props.as_object());
 
         Ok((props, metadata, route_props))
     }
@@ -924,6 +933,13 @@ impl<'props> ScopedInertiaProps<'props> {
     /// Creates an empty lazy props container.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates an empty lazy props container with space for `capacity` entries.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            entries: Vec::with_capacity(capacity),
+        }
     }
 
     /// Adds a standard prop value.
@@ -1107,8 +1123,9 @@ impl<'props> IntoPageProps for ScopedInertiaProps<'props> {
             entry.apply_metadata(&mut metadata);
         }
 
-        let mut props = Map::new();
-        let mut route_props = Vec::new();
+        let entry_count = self.entries.len();
+        let mut props = Map::with_capacity(entry_count + 1);
+        let mut route_props = Vec::with_capacity(entry_count);
 
         for entry in self.entries {
             let route_root = prop_root(&entry.key).to_owned();
@@ -1121,7 +1138,7 @@ impl<'props> IntoPageProps for ScopedInertiaProps<'props> {
         }
 
         ensure_errors_prop(&mut props);
-        let metadata = metadata.for_response(request, component, Some(&props));
+        let metadata = metadata.into_response_metadata(request, component, Some(&props));
 
         Ok((Value::Object(props), metadata, route_props))
     }
