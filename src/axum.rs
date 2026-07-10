@@ -262,7 +262,7 @@ impl InertiaVersionSource {
 /// let shared_props = SharedProps::new()
 ///     .value("appName", "My App")
 ///     .prop_optional("auth.csrfToken", |request| {
-///         request.extension::<String>().cloned()
+///         request.context().is_inertia().then_some("csrf-token")
 ///     });
 ///
 /// let app: Router<()> = Router::new()
