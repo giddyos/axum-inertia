@@ -12,13 +12,12 @@ use ::axum::http::{Extensions, HeaderMap, HeaderValue, Method, Request, StatusCo
 use ::axum::response::{IntoResponse, Response};
 use ::axum::Json;
 use fluent_uri::{ParseError, UriRef};
+use pin_project_lite::pin_project;
 use serde::Serialize;
 use serde_json::Value;
 use std::convert::Infallible;
 use std::error::Error;
 use std::fmt;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tower_layer::Layer;
@@ -30,7 +29,32 @@ pub use super::HtmlResponseContext;
 type SharedPropProvider =
     Arc<dyn Fn(&InertiaRequest) -> Result<Option<Value>, serde_json::Error> + Send + Sync>;
 type VersionProvider = Arc<dyn Fn() -> String + Send + Sync>;
-type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send + 'static>>;
+
+pin_project! {
+    #[project = VersionFutureProj]
+    pub enum VersionFuture<F, E> {
+        Inner { #[pin] future: F },
+        Ready { result: Option<Result<Response, E>> },
+    }
+}
+
+impl<F, E> std::future::Future for VersionFuture<F, E>
+where
+    F: std::future::Future<Output = Result<Response, E>>,
+{
+    type Output = Result<Response, E>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.project() {
+            VersionFutureProj::Inner { future } => future.poll(context),
+            VersionFutureProj::Ready { result } => Poll::Ready(
+                result
+                    .take()
+                    .expect("ready version future polled after completion"),
+            ),
+        }
+    }
+}
 
 fn header<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'headers str> {
     headers.get(name).and_then(|value| value.to_str().ok())
@@ -511,13 +535,11 @@ pub struct VersionService<S> {
 
 impl<S, B> Service<Request<B>> for VersionService<S>
 where
-    S: Service<Request<B>, Response = Response> + Send + 'static,
-    S::Future: Send + 'static,
-    B: Send + 'static,
+    S: Service<Request<B>, Response = Response>,
 {
     type Response = Response;
     type Error = S::Error;
-    type Future = BoxFuture<Result<Self::Response, Self::Error>>;
+    type Future = VersionFuture<S::Future, S::Error>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -534,15 +556,18 @@ where
             let response = conflict_response(&original_uri_from_extensions(&request))
                 .unwrap_or_else(internal_error_response);
 
-            return Box::pin(async move { Ok(response) });
+            return VersionFuture::Ready {
+                result: Some(Ok(response)),
+            };
         }
 
         request
             .extensions_mut()
             .insert(InertiaVersion::new(version));
 
-        let future = self.inner.call(request);
-        Box::pin(future)
+        VersionFuture::Inner {
+            future: self.inner.call(request),
+        }
     }
 }
 
