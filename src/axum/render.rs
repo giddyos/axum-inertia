@@ -121,18 +121,20 @@ fn location_header_with_fragment(url: &str) -> Result<(HeaderValue, bool), Inert
         .map(|header| (header, has_fragment))
 }
 
-fn local_uri(uri: &Uri) -> String {
+fn local_uri(uri: &Uri) -> Box<str> {
     uri.path_and_query()
-        .map(|path_and_query| path_and_query.as_str().to_owned())
-        .unwrap_or_else(|| "/".to_owned())
+        .map(|path_and_query| path_and_query.as_str().into())
+        .unwrap_or_else(|| "/".into())
 }
 
-fn original_uri_from_extensions<B>(request: &Request<B>) -> String {
+fn original_local_uri<B>(request: &Request<B>) -> &str {
     request
         .extensions()
         .get::<OriginalUri>()
-        .map(|original_uri| local_uri(&original_uri.0))
-        .unwrap_or_else(|| local_uri(request.uri()))
+        .map(|original_uri| &original_uri.0)
+        .unwrap_or_else(|| request.uri())
+        .path_and_query()
+        .map_or("/", |path_and_query| path_and_query.as_str())
 }
 
 fn redirect_response(status: StatusCode, url: &str) -> Result<Response, InertiaError> {
@@ -418,7 +420,7 @@ pub struct InertiaRequest {
     context: RequestContext,
     method: Method,
     shared_props: Option<SharedProps>,
-    uri: String,
+    uri: Box<str>,
     version: Option<InertiaVersion>,
 }
 
@@ -638,7 +640,7 @@ where
             let request_version = header(request.headers(), crate::X_INERTIA_VERSION);
 
             if request_version != Some(version.as_ref()) {
-                let response = conflict_response(&original_uri_from_extensions(&request))
+                let response = conflict_response(original_local_uri(&request))
                     .unwrap_or_else(internal_error_response);
 
                 return VersionFuture::Ready {

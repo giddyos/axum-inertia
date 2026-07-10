@@ -1,9 +1,7 @@
 use ::axum::http::header::HeaderName;
 use serde::Serialize;
-use serde_json::ser::{Formatter, Serializer};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
-use std::io::{self, Write};
 use std::sync::Arc;
 
 /// Request header set by Inertia XHR visits.
@@ -103,52 +101,6 @@ impl HtmlResponseContext {
     pub fn data_page(&self) -> &str {
         &self.data_page
     }
-}
-
-#[derive(Default)]
-struct ScriptSafeFormatter;
-
-impl Formatter for ScriptSafeFormatter {
-    fn write_string_fragment<W>(&mut self, writer: &mut W, fragment: &str) -> io::Result<()>
-    where
-        W: ?Sized + Write,
-    {
-        let mut start = 0;
-
-        for (index, character) in fragment.char_indices() {
-            let replacement: Option<&[u8]> = match character {
-                '<' => Some(b"\\u003C"),
-                '>' => Some(b"\\u003E"),
-                '&' => Some(b"\\u0026"),
-                '\u{2028}' => Some(b"\\u2028"),
-                '\u{2029}' => Some(b"\\u2029"),
-                _ => None,
-            };
-
-            let Some(replacement) = replacement else {
-                continue;
-            };
-
-            writer.write_all(&fragment.as_bytes()[start..index])?;
-            writer.write_all(replacement)?;
-            start = index + character.len_utf8();
-        }
-
-        writer.write_all(&fragment.as_bytes()[start..])
-    }
-}
-
-fn to_script_safe_json<T: Serialize>(value: &T) -> Result<String, serde_json::Error> {
-    let mut bytes = Vec::with_capacity(1024);
-    let mut serializer = Serializer::with_formatter(&mut bytes, ScriptSafeFormatter);
-    value.serialize(&mut serializer)?;
-    Ok(String::from_utf8(bytes).expect("serde_json serializers always emit valid UTF-8"))
-}
-
-pub(crate) fn html_response_context<T: Serialize>(
-    page: &T,
-) -> Result<HtmlResponseContext, serde_json::Error> {
-    to_script_safe_json(page).map(HtmlResponseContext::new)
 }
 
 fn is_false(value: &bool) -> bool {
