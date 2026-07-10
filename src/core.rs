@@ -1323,19 +1323,6 @@ impl<T> Page<T> {
 }
 
 impl Page<Value> {
-    pub(crate) fn owns_prop_root(&self, prop: &str) -> bool {
-        let root = prop_root(prop);
-
-        if self.route_props.0.is_empty() {
-            self.props
-                .as_object()
-                .map(|props| props.contains_key(root))
-                .unwrap_or(false)
-        } else {
-            self.route_props.0.iter().any(|prop| prop == root)
-        }
-    }
-
     /// Merges shared props into the page object.
     ///
     /// Existing page props take precedence when keys collide. Dotted keys are
@@ -1388,6 +1375,77 @@ impl Page<Value> {
         }
 
         self
+    }
+}
+
+/// A page under construction before shared props are merged.
+pub(crate) struct PageDraft {
+    page: Page<Value>,
+    route_roots: Vec<Box<str>>,
+}
+
+impl PageDraft {
+    pub(crate) fn new(page: Page<Value>) -> Self {
+        let mut route_roots = page
+            .route_props
+            .0
+            .iter()
+            .cloned()
+            .map(String::into_boxed_str)
+            .collect::<Vec<_>>();
+        if route_roots.is_empty() {
+            if let Some(props) = page.props.as_object() {
+                route_roots.extend(props.keys().cloned().map(String::into_boxed_str));
+            }
+        }
+        Self { page, route_roots }
+    }
+
+    pub(crate) fn owns_prop_root(&self, key: &str) -> bool {
+        let root = prop_root(key);
+        self.route_roots
+            .iter()
+            .any(|candidate| candidate.as_ref() == root)
+    }
+
+    pub(crate) fn insert_shared(&mut self, key: &str, value: Value) -> bool {
+        if self.owns_prop_root(key) {
+            return false;
+        }
+
+        if !self.page.props.is_object() {
+            self.page.props = Value::Object(Map::new());
+        }
+
+        let props = self
+            .page
+            .props
+            .as_object_mut()
+            .expect("props was normalized to an object");
+        ensure_errors_prop(props);
+        let path = key
+            .split('.')
+            .filter(|segment| !segment.is_empty())
+            .collect::<Vec<_>>();
+
+        if insert_shared_prop_path(props, &path, value) {
+            let root = prop_root(key);
+            if !self
+                .page
+                .shared_props
+                .iter()
+                .any(|existing| existing == root)
+            {
+                self.page.shared_props.push(root.to_owned());
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn finish(self) -> Page<Value> {
+        self.page
     }
 }
 

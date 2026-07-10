@@ -1,8 +1,8 @@
 //! Axum integration for `inertia_axum`.
 
 use super::{
-    html_response_context, Inertia, IntoPageProps, Location, Page, Redirect, RequestContext, VARY,
-    X_INERTIA, X_INERTIA_HEADER, X_INERTIA_LOCATION_HEADER, X_INERTIA_REDIRECT_HEADER,
+    html_response_context, Inertia, IntoPageProps, Location, PageDraft, Redirect, RequestContext,
+    VARY, X_INERTIA, X_INERTIA_HEADER, X_INERTIA_LOCATION_HEADER, X_INERTIA_REDIRECT_HEADER,
 };
 #[cfg(test)]
 use super::{X_INERTIA_LOCATION, X_INERTIA_REDIRECT};
@@ -339,20 +339,22 @@ impl SharedProps {
         self.providers.is_empty()
     }
 
-    fn resolve(
+    fn merge_into(
         &self,
         request: &InertiaRequest,
-        page: &Page<Value>,
-    ) -> Result<Vec<(String, Value)>, serde_json::Error> {
-        self.providers
-            .iter()
-            .filter(|(key, _provider)| !page.owns_prop_root(key))
-            .filter_map(|(key, provider)| match provider(request) {
-                Ok(Some(value)) => Some(Ok((key.to_string(), value))),
-                Ok(None) => None,
-                Err(error) => Some(Err(error)),
-            })
-            .collect()
+        page: &mut PageDraft,
+    ) -> Result<(), serde_json::Error> {
+        for (key, provider) in self.providers.iter() {
+            if page.owns_prop_root(key) {
+                continue;
+            }
+
+            if let Some(value) = provider(request)? {
+                page.insert_shared(key, value);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -441,7 +443,7 @@ impl InertiaRequest {
             .url()
             .map(ToOwned::to_owned)
             .unwrap_or_else(|| self.uri.clone());
-        let mut page = inertia.into_page(
+        let page = inertia.into_page(
             url,
             self.version
                 .as_ref()
@@ -449,17 +451,17 @@ impl InertiaRequest {
             &context,
         )?;
 
+        let mut draft = PageDraft::new(page);
+
         if let Some(shared_props) = &self.shared_props {
             if !shared_props.is_empty() {
                 let mut shared_request = self.clone();
                 shared_request.context = context.clone();
-                let resolved_shared_props = shared_props.resolve(&shared_request, &page)?;
-
-                if !resolved_shared_props.is_empty() {
-                    page = page.with_shared_props(resolved_shared_props);
-                }
+                shared_props.merge_into(&shared_request, &mut draft)?;
             }
         }
+
+        let page = draft.finish();
 
         if context.is_inertia() {
             let mut response = Json(page).into_response();
