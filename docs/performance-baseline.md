@@ -2,6 +2,13 @@
 
 Base commit: `110dcf0d345b0e78676d40d8a68661c1e271ecd3`
 
+Phase 1 validation was rerun at refactor start on commit
+`b5d433c3ff4c9ab5510c4052ae914e6dac2151ba`: formatting, workspace check,
+tests (100), Clippy with warnings denied, rustdoc with warnings denied, and
+benchmark compilation all passed. Criterion reports were refreshed under
+`target/criterion/` for `request_context`, `page_render`, `shared_props`, and
+`version_layer` before production code moves.
+
 ## Environment
 
 - CPU: Apple M1 Max
