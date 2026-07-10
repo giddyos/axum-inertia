@@ -1,9 +1,11 @@
-//! Inertia page models and builders.
+//! Inertia page models, metadata, and construction.
 
 pub mod builder;
 mod draft;
 mod metadata;
 mod model;
 
-pub(crate) use builder::PageDraft;
-pub use builder::{Inertia, InertiaPageBuilder, OnceProp, Page, PageMetadata, ScrollProps};
+pub use builder::{Inertia, InertiaPageBuilder};
+pub(crate) use draft::PageDraft;
+pub use metadata::{OnceProp, PageMetadata, ScrollProps};
+pub use model::Page;

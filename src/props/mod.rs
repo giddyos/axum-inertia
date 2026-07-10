@@ -1,7 +1,8 @@
-//! Eager and lazy page props.
+//! Eager and synchronously resolved route props.
 
 mod eager;
 mod lazy;
 mod resolver;
 
-pub use crate::page::builder::{InertiaProps, IntoPageProps, ScopedInertiaProps};
+pub use lazy::{InertiaProps, ScopedInertiaProps};
+pub use resolver::IntoPageProps;
