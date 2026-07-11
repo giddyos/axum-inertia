@@ -76,7 +76,7 @@ pub(crate) fn verify_bundle(bundle: &Path) -> Result<(), SsrStartError> {
     Ok(())
 }
 
-async fn spawn_node(
+fn spawn_node(
     runtime: &Path,
     bundle: &Path,
     working_directory: &Path,
@@ -130,6 +130,7 @@ pub(crate) async fn check_health_until_ready(
     ];
     let deadline = tokio::time::Instant::now() + maximum;
     let mut attempt = 0usize;
+    #[allow(unused_assignments)]
     let mut last_error = None;
     loop {
         match client.health().await {
@@ -163,8 +164,8 @@ struct NodeLaunchConfig {
     startup_timeout: std::time::Duration,
 }
 
-async fn relaunch(launch: &NodeLaunchConfig) -> Result<Child, SsrStartError> {
-    let mut child = spawn_node(&launch.runtime, &launch.bundle, &launch.working_directory).await?;
+fn relaunch(launch: &NodeLaunchConfig) -> Result<Child, SsrStartError> {
+    let mut child = spawn_node(&launch.runtime, &launch.bundle, &launch.working_directory)?;
     let pid = child.id();
     forward_output(
         pid,
@@ -206,7 +207,7 @@ async fn supervise(
                         () = tokio::time::sleep(delay) => {}
                     }
                     let _ = health.send(SsrHealth::Starting { backend: SsrBackendKind::ManagedNode });
-                    match relaunch(&launch).await {
+                    match relaunch(&launch) {
                         Ok(new_child) => {
                             child = new_child;
                             if check_health_until_ready(&client, launch.startup_timeout).await.is_ok() {
@@ -240,7 +241,7 @@ pub(crate) async fn start_managed_node(
         config.max_concurrency,
         config.max_response_bytes,
     )?;
-    let mut child = spawn_node(&runtime, &bundle, &working_directory).await?;
+    let mut child = spawn_node(&runtime, &bundle, &working_directory)?;
     let pid = child.id();
     forward_output(
         pid,
@@ -275,7 +276,7 @@ pub(crate) async fn start_managed_node(
         backend: SsrBackendKind::ManagedNode,
         health,
         health_tx,
-        lifecycle: Some(lifecycle),
+        _lifecycle: Some(lifecycle),
     })
 }
 

@@ -15,6 +15,33 @@ pub struct TestResponse<'a> {
 }
 
 impl<'a> TestResponse<'a> {
+    /// Asserts that the document contains server-rendered application markup.
+    pub fn assert_ssr(&self) -> &Self {
+        let html = std::str::from_utf8(&self.body).expect("HTML response was not UTF-8");
+        assert!(
+            html.contains("data-server-rendered=\"true\""),
+            "response was not server rendered"
+        );
+        self
+    }
+    /// Asserts that the document uses the client-rendered mount.
+    pub fn assert_csr(&self) -> &Self {
+        let html = std::str::from_utf8(&self.body).expect("HTML response was not UTF-8");
+        assert!(
+            !html.contains("data-server-rendered=\"true\""),
+            "response was unexpectedly server rendered"
+        );
+        self
+    }
+    /// Asserts that SSR-generated head markup contains `expected`.
+    pub fn assert_ssr_head_contains(&self, expected: &str) -> &Self {
+        let html = std::str::from_utf8(&self.body).expect("HTML response was not UTF-8");
+        assert!(
+            html.contains(expected),
+            "SSR head did not contain {expected:?}"
+        );
+        self
+    }
     /// Returns the HTTP status.
     pub fn status(&self) -> StatusCode {
         self.status

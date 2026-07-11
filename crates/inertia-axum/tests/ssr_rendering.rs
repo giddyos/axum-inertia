@@ -1,4 +1,5 @@
 #![cfg(feature = "ssr")]
+#![allow(missing_docs)]
 
 use axum::{
     Router,
@@ -38,7 +39,7 @@ async fn fake(render_status: StatusCode, render_body: &'static str) -> (String, 
     (format!("http://{address}"), calls)
 }
 
-async fn external(base: &str, config: Ssr, route: axum::routing::MethodRouter) -> Router {
+async fn external(_base: &str, config: Ssr, route: axum::routing::MethodRouter) -> Router {
     let inertia = InertiaApp::default_root()
         .ssr(config)
         .start()

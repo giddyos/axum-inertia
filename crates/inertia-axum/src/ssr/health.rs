@@ -11,6 +11,7 @@ pub enum SsrBackendKind {
 
 /// A stable classification for an SSR runtime failure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum SsrFailureKind {
     Unavailable,
     Overloaded,
@@ -24,6 +25,7 @@ pub enum SsrFailureKind {
 
 /// The latest locally recorded SSR backend state.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(missing_docs)]
 pub enum SsrHealth {
     Disabled,
     Starting {

@@ -1,4 +1,5 @@
 #![cfg(feature = "ssr")]
+#![allow(missing_docs)]
 
 use axum::{
     Router,

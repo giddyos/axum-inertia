@@ -57,6 +57,7 @@ impl SsrEndpoints {
         })
     }
 
+    #[cfg(feature = "vite")]
     pub(crate) fn vite(base: &str) -> Result<Self, SsrStartError> {
         Ok(Self {
             render: endpoint(base, "/__inertia_ssr")?,

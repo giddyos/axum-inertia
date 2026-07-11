@@ -6,6 +6,6 @@ publish = false
 
 [dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }
-inertia-axum = { workspace = true }
+inertia-axum = { workspace = true, features = ["ssr"] }
 serde.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync"] }

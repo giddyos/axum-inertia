@@ -4,6 +4,7 @@ use std::fmt;
 
 /// A failure while validating or starting an SSR backend.
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub enum SsrStartError {
     /// The endpoint is not a valid URI.
     InvalidEndpoint {
@@ -156,6 +157,7 @@ impl From<SsrStartError> for StartError {
 
 /// A classified SSR render/runtime failure.
 #[derive(Debug)]
+#[allow(missing_docs)]
 pub enum SsrFailure {
     Unavailable,
     Overloaded,

@@ -45,6 +45,13 @@ async fn index(State(state): State<AppState>) -> TodosPage {
     }
 }
 
+async fn private_todos(State(state): State<AppState>) -> TodosPage {
+    index(State(state)).await
+}
+async fn preview(State(state): State<AppState>) -> TodosPage {
+    index(State(state)).await
+}
+
 #[derive(Deserialize, InertiaForm)]
 #[inertia(validate_with = "validate_todo")]
 struct CreateTodo {
@@ -77,6 +84,11 @@ async fn store(
 fn app(state: AppState, inertia: InertiaApp) -> Router {
     Router::new()
         .route("/todos", get(index).post(store))
+        .route("/todos/private", get(private_todos).without_ssr())
+        .route(
+            "/todos/preview",
+            get(preview).ssr_when(|context| !context.headers().contains_key("x-force-csr")),
+        )
         .with_state(state)
         .inertia(inertia)
 }
@@ -85,11 +97,13 @@ fn app(state: AppState, inertia: InertiaApp) -> Router {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let frontend = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("svelte-app");
     let inertia = InertiaApp::vite(frontend)
-        .entry("src/main.js")
+        .entry("src/app.js")
         .build_dir("../public/build")
         .public_path("/public/build")
+        .ssr("dist/ssr/app.js")
         .transient(MemoryTransient::new())
-        .build()?;
+        .start()
+        .await?;
     let state = AppState {
         todos: Arc::new(RwLock::new(vec![Todo {
             id: 1,

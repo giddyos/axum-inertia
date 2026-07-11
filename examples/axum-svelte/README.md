@@ -12,7 +12,7 @@
 ```text
 src/main.rs                              State, typed page, handlers, and server
 svelte-app/src/Pages/Todos/Index.svelte  Deferred data and validation UI
-svelte-app/src/main.js                   Inertia client startup
+svelte-app/src/app.js                    Inertia client and plugin-generated SSR entry
 ```
 
 ## Routes

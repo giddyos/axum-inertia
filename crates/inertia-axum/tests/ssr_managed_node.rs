@@ -1,4 +1,5 @@
-#![cfg(feature = "ssr")]
+#![cfg(all(feature = "ssr", feature = "live-ssr"))]
+#![allow(missing_docs)]
 
 use axum::{
     Router,
@@ -171,4 +172,40 @@ const server = http.createServer((req,res) => {{
     drop(inertia);
     tokio::time::sleep(Duration::from_millis(100)).await;
     let _ = std::fs::remove_dir_all(root);
+}
+
+#[tokio::test]
+async fn official_vite_plugin_bundle_starts_and_renders() {
+    let bundle = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/axum-svelte/svelte-app/dist/ssr/app.js");
+    if !bundle.is_file() {
+        // The dedicated live-SSR job builds this bundle before running the test.
+        return;
+    }
+    let inertia = InertiaApp::default_root()
+        .ssr(Ssr::node(&bundle))
+        .start()
+        .await
+        .unwrap();
+    let app = Router::new()
+        .route(
+            "/todos",
+            get(|| async {
+                DynamicPage::new("Todos/Index").prop("todos", Vec::<serde_json::Value>::new())
+            }),
+        )
+        .inertia(inertia);
+    let response = app
+        .oneshot(Request::get("/todos").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let html = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(html.contains("data-server-rendered=\"true\""));
+    assert!(html.contains("<h1>Todos</h1>"));
 }

@@ -55,6 +55,7 @@ ssr = [
     "dep:tokio",
     "dep:tower",
 ]
+live-ssr = ["ssr"]
 
 [dev-dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }

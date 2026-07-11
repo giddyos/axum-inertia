@@ -13,11 +13,12 @@ description = "Testing utilities for inertia-axum applications"
 workspace = true
 
 [dependencies]
-axum.workspace = true
-inertia-axum = { workspace = true, features = ["test-support"] }
+axum = { workspace = true, features = ["http1", "tokio"] }
+inertia-axum = { workspace = true, features = ["test-support", "ssr"] }
 serde.workspace = true
 serde_json.workspace = true
 tower = { workspace = true, features = ["util"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

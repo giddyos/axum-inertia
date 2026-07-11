@@ -31,6 +31,7 @@ impl HeadMarkup {
         Self(String::new())
     }
 
+    #[cfg(feature = "ssr")]
     pub(crate) fn from_fragments(fragments: impl IntoIterator<Item = String>) -> Self {
         Self(fragments.into_iter().collect())
     }
@@ -53,6 +54,7 @@ impl MountMarkup {
         ))
     }
 
+    #[cfg(feature = "ssr")]
     pub(crate) fn ssr(body: String) -> Self {
         Self(body)
     }

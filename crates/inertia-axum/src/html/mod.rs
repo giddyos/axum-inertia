@@ -37,6 +37,7 @@ impl HtmlResponseContext {
         std::str::from_utf8(&self.data_page).expect("Inertia page JSON is always UTF-8")
     }
 
+    #[cfg(feature = "ssr")]
     pub(crate) fn data_page_bytes(&self) -> Bytes {
         self.data_page.clone()
     }

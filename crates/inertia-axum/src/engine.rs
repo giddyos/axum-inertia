@@ -129,7 +129,7 @@ impl Engine {
         pending: PendingPage,
         shared: Option<crate::Props>,
         transient: Option<&mut crate::TransientData>,
-        #[cfg(feature = "ssr")] _ssr_override: Option<crate::SsrOverride>,
+        #[cfg(feature = "ssr")] ssr_override: Option<crate::SsrOverride>,
     ) -> Result<Response, crate::axum::InertiaError> {
         let PendingPage {
             component,
@@ -280,11 +280,12 @@ impl Engine {
             page,
             status,
             #[cfg(feature = "ssr")]
-            _ssr_override,
+            ssr_override,
         )
         .await
     }
 
+    #[cfg_attr(not(feature = "ssr"), allow(clippy::unused_async))]
     async fn finalize_initial_page(
         &self,
         visit: &Visit,
@@ -292,6 +293,8 @@ impl Engine {
         status: StatusCode,
         #[cfg(feature = "ssr")] route: Option<crate::SsrOverride>,
     ) -> Result<Response, crate::axum::InertiaError> {
+        #[cfg(not(feature = "ssr"))]
+        let _ = visit;
         let serialized = html_response_context(&page)?;
         let assets = self.app.inner.assets.tags.clone();
 
@@ -314,19 +317,28 @@ impl Engine {
                     runtime.record_success();
                     span.record("outcome", "rendered");
                     span.record("response_bytes", rendered.body.len());
-                    span.record("duration_ms", started.elapsed().as_millis() as u64);
+                    span.record(
+                        "duration_ms",
+                        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    );
                     let head = HeadMarkup::from_fragments(rendered.head);
                     let mount = MountMarkup::ssr(rendered.body);
                     return render_root(&self.app, &assets, &head, &mount, status);
                 }
                 Ok(None) => {
                     span.record("outcome", "vite_warmup");
-                    span.record("duration_ms", started.elapsed().as_millis() as u64);
+                    span.record(
+                        "duration_ms",
+                        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    );
                 }
                 Err(error) if matches!(runtime.failure_mode(), crate::ssr::FailureMode::Strict) => {
                     runtime.record_failure(error.kind());
                     span.record("outcome", "strict_error");
-                    span.record("duration_ms", started.elapsed().as_millis() as u64);
+                    span.record(
+                        "duration_ms",
+                        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    );
                     return Err(crate::axum::InertiaError::ssr(error));
                 }
                 Err(error) => {
@@ -341,7 +353,10 @@ impl Engine {
                         _ => "fallback_render",
                     };
                     span.record("outcome", outcome);
-                    span.record("duration_ms", started.elapsed().as_millis() as u64);
+                    span.record(
+                        "duration_ms",
+                        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    );
                     tracing::warn!(error = %error, kind = ?error.kind(), "SSR failed; falling back to CSR")
                 }
             }

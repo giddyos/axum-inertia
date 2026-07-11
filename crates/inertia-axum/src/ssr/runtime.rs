@@ -12,7 +12,7 @@ pub(crate) struct SsrRuntime {
     pub(crate) backend: SsrBackendKind,
     pub(crate) health: tokio::sync::watch::Receiver<SsrHealth>,
     pub(crate) health_tx: tokio::sync::watch::Sender<SsrHealth>,
-    pub(crate) lifecycle: Option<tokio::sync::watch::Sender<()>>,
+    pub(crate) _lifecycle: Option<tokio::sync::watch::Sender<()>>,
 }
 
 impl SsrRuntime {
@@ -25,7 +25,7 @@ impl SsrRuntime {
             backend,
             health,
             health_tx,
-            lifecycle: None,
+            _lifecycle: None,
         }
     }
 
@@ -72,6 +72,8 @@ pub(crate) async fn start_runtime(
     assets: &AssetRuntime,
     vite_root: Option<&std::path::Path>,
 ) -> Result<SsrRuntime, SsrStartError> {
+    #[cfg(not(feature = "vite"))]
+    let _ = assets;
     #[cfg(feature = "vite")]
     if let Some(dev_server) = &assets.vite_dev_server {
         let client = SsrClient::new(

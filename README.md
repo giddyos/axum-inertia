@@ -258,6 +258,27 @@ It can also preserve redirect cookies, follow responses, select partial props,
 and assert deferred or missing props. See
 [`examples/todo`](examples/todo) for a complete test suite.
 
+## Server-side rendering
+
+Enable the `ssr` feature, configure the production bundle, and use async startup. SSR is used for eligible initial page requests by default:
+
+```rust,ignore
+let inertia = InertiaApp::vite("frontend")
+    .ssr("dist/ssr/ssr.js")
+    .start()
+    .await?;
+
+Router::new()
+    .route("/", get(home))
+    .route("/dashboard", get(dashboard).without_ssr())
+    .route("/account", get(account).ssr_when(|context| {
+        context.extension::<AuthUser>().is_none()
+    }))
+    .inertia(inertia);
+```
+
+See the [SSR guide](docs/ssr.md) for Vite, managed and external Node modes, opt-in policy, health, operations, testing, and capacity guidance.
+
 ## Examples
 
 ### Browser applications
@@ -279,6 +300,7 @@ and assert deferred or missing props. See
 
 - [API documentation](https://docs.rs/inertia-axum/latest/inertia_axum/)
 - [Protocol support matrix](docs/protocol-support.md)
+- [Server-side rendering](docs/ssr.md)
 - [Migration guide from 0.5](docs/migration-from-0.5.md)
 - [Custom asset providers](https://docs.rs/inertia-axum/latest/inertia_axum/trait.AssetProvider.html)
 - [Custom root views](https://docs.rs/inertia-axum/latest/inertia_axum/trait.RootView.html)
