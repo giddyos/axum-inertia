@@ -59,6 +59,10 @@ impl<'a> From<RootContext<'a>> for AskamaRootContext<'a> {
 ///
 /// # Example
 ///
+/// The `safe` filter is appropriate only for the three trusted Inertia
+/// fragments shown here. Application and user-provided values must retain
+/// Askama's default HTML escaping.
+///
 /// ```rust
 /// use inertia_axum::{
 ///     AskamaRoot,
@@ -254,6 +258,8 @@ mod tests {
     }
 
     mod filters {
+        #![allow(clippy::inline_always, clippy::unused_self)]
+
         #[::askama::filter_fn]
         pub fn fail(
             _value: &dyn std::fmt::Display,

@@ -82,6 +82,9 @@ Use `inertia.has_ssr_head` to avoid a duplicate fallback title:
 {{ inertia.head|safe }}
 ```
 
+Here too, `safe` applies only to the trusted SSR head generated through the
+configured backend; keep normal escaping for application and user values.
+
 ## Performance characteristics
 
 The built-in and marker paths do not compile Askama. The marker path performs all parsing at startup. With the feature enabled, Askama compiles templates into concrete Rust types and request handling calls `render_into` with a buffer preallocated from Askama's `SIZE_HINT` plus the exact generated-fragment lengths. There is no request-time template file access, parsing, dynamic template dispatch, or intermediate rendered string in the adapter.
