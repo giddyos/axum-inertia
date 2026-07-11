@@ -21,3 +21,5 @@ ia = { package = "inertia-axum", path = "../..", default-features = false }
 axum = "0.8.9"
 serde = { version = "1", features = ["derive"] }
 trybuild = "1"
+garde = { version = "0.22", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }

@@ -21,3 +21,10 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
+
+#[proc_macro_derive(InertiaForm, attributes(inertia))]
+pub fn derive_form(input: TokenStream) -> TokenStream {
+    form::expand(syn::parse_macro_input!(input))
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}

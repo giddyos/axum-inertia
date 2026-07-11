@@ -1,0 +1,5 @@
+error: inertia redact field "password" does not exist
+ --> tests/ui/fail/missing_redacted_field.rs:4:1
+  |
+4 | #[inertia(old_input, redact = "password")]
+  | ^

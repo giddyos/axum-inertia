@@ -12,6 +12,7 @@ pub mod prelude;
 mod app;
 pub mod assets;
 mod engine;
+pub mod form;
 mod headers;
 mod html;
 mod layer;
@@ -31,6 +32,7 @@ pub use app::{ErrorHandler, InertiaApp, InertiaAppBuilder, RouterInertiaExt};
 pub use assets::{
     AssetContext, AssetError, AssetProvider, AssetVersion, ConfigError, StaticAssetService,
 };
+pub use form::{Errors, FormError, InertiaForm as Form, Validate, Validated};
 pub use headers::*;
 pub use html::HtmlResponseContext;
 pub use layer::{InertiaLayer, InertiaService};
@@ -58,10 +60,11 @@ pub use visit::Visit;
 pub mod __private {
     pub use crate::props::prop::{DynamicPropAdapter, IntoPendingProp};
     pub use axum::response::{IntoResponse, Response};
+    pub use serde_json::{to_value, Value};
 }
 
 #[cfg(feature = "macros")]
-pub use inertia_axum_macros::{InertiaPage, InertiaProps};
+pub use inertia_axum_macros::{InertiaForm, InertiaPage, InertiaProps};
 
 /// Advanced protocol-aware application APIs.
 pub mod advanced {

@@ -102,6 +102,8 @@ pub(crate) struct StoredTransient {
     flash: Map<String, Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     errors: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    old_input: Option<Value>,
 }
 
 /// Loaded and outgoing one-request transient state.
@@ -141,11 +143,22 @@ impl TransientData {
     pub fn errors(&self) -> Option<&Value> {
         self.incoming.errors.as_ref()
     }
+    /// Stores explicitly opted-in redacted old input for the next request.
+    pub fn store_old_input(&mut self, input: Value) {
+        self.outgoing.old_input = Some(input);
+    }
+    /// Borrows old input loaded for this request.
+    pub fn old_input(&self) -> Option<&Value> {
+        self.incoming.old_input.as_ref()
+    }
     /// Reflashes all unconsumed incoming values to the next request.
     pub fn reflash(&mut self) {
         self.outgoing.flash.extend(self.incoming.flash.clone());
         if self.outgoing.errors.is_none() {
             self.outgoing.errors.clone_from(&self.incoming.errors);
+        }
+        if self.outgoing.old_input.is_none() {
+            self.outgoing.old_input.clone_from(&self.incoming.old_input);
         }
     }
     pub(crate) fn into_stored(self) -> StoredTransient {

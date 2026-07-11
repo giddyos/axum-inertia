@@ -45,7 +45,7 @@ impl TransientStore for TowerSessionTransient {
                 "TowerSessionTransient lost its request session projection".to_owned(),
             )
         })?;
-        if !stored.flash.is_empty() || stored.errors.is_some() {
+        if !stored.flash.is_empty() || stored.errors.is_some() || stored.old_input.is_some() {
             session
                 .insert(KEY, stored)
                 .await

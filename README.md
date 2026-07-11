@@ -145,6 +145,31 @@ Redirect::to("/todos")
 The optional `tower-sessions` feature provides `TowerSessionTransient` when an
 application already installs `SessionManagerLayer` outside the Inertia layer.
 
+## Forms and validation
+
+`Validated<T>` supports JSON and URL-encoded bodies. Semantic validation
+failures are stored transiently and redirected back with `303 See Other`; they
+are never returned as protocol-incompatible `422` Inertia JSON.
+
+```rust,ignore
+#[derive(serde::Deserialize, InertiaForm)]
+#[inertia(validate_with = "validate_todo", error_bag = "createTodo")]
+struct CreateTodo {
+    title: String,
+}
+
+async fn store(Validated(input): Validated<CreateTodo>) -> Redirect {
+    save(input).await;
+    Redirect::to("/todos").flash("toast", "Todo created")
+}
+```
+
+The request's `X-Inertia-Error-Bag` takes precedence over the derive fallback.
+Old input is disabled by default; `#[inertia(old_input, redact = "token")]`
+opts in while guaranteeing that listed or `#[inertia(sensitive)]` fields are
+not persisted. Enable `garde` or `validator` for their derive adapters, or use
+the lower-level `InertiaForm<T>::validate_with` path.
+
 Use `VersionLayer::dynamic` for a request-time asset version provider. Keep the
 provider fast and read a cached value rather than doing blocking I/O there.
 

@@ -36,17 +36,32 @@ pub enum PendingResponse {
     Redirect(Redirect),
     /// An external location visit.
     Location(Location),
+    /// A semantic form-validation failure.
+    InvalidForm(PendingValidation),
+}
+
+/// Validation state awaiting transient persistence and redirect-back finalization.
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct PendingValidation {
+    pub(crate) errors: Value,
+    pub(crate) old_input: Option<Value>,
+    pub(crate) back: Box<str>,
 }
 
 impl PendingResponse {
     pub(crate) fn uses_transient(&self) -> bool {
-        matches!(self, Self::Page(_) | Self::Redirect(_))
+        matches!(
+            self,
+            Self::Page(_) | Self::Redirect(_) | Self::InvalidForm(_)
+        )
     }
     pub(crate) fn requires_transient(&self) -> bool {
         match self {
             Self::Page(page) => !page.flash.is_empty(),
             Self::Redirect(redirect) => !redirect.flash.is_empty(),
             Self::Location(_) => false,
+            Self::InvalidForm(_) => true,
         }
     }
 }

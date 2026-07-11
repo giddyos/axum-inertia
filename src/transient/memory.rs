@@ -40,7 +40,7 @@ impl TransientStore for MemoryTransient {
             .0
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if stored.flash.is_empty() && stored.errors.is_none() {
+        if stored.flash.is_empty() && stored.errors.is_none() && stored.old_input.is_none() {
             values.remove(&scope);
         } else {
             values.insert(scope, stored);

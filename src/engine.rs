@@ -92,6 +92,17 @@ impl Engine {
                     redirect_response(status, location.url())
                 }
             }
+            PendingResponse::InvalidForm(validation) => {
+                let data = transient
+                    .as_mut()
+                    .expect("validation requires configured transient state");
+                data.reflash();
+                data.store_errors(validation.errors);
+                if let Some(old_input) = validation.old_input {
+                    data.store_old_input(old_input);
+                }
+                redirect_response(StatusCode::SEE_OTHER, &validation.back)
+            }
         };
         let mut response = result.unwrap_or_else(crate::axum::error::internal_error_response);
         if let (Some(store), Some(data)) = (&self.app.inner.transient, transient) {
@@ -226,6 +237,14 @@ impl Engine {
         for (key, value) in shared_values {
             if insert_shared_prop_path(&mut values, &key, value) {
                 metadata = metadata.share(prop_root(&key));
+            }
+        }
+        if let Some(data) = transient.as_ref() {
+            if let Some(errors) = data.errors() {
+                values.insert("errors".to_owned(), errors.clone());
+            }
+            if let Some(old_input) = data.old_input() {
+                values.insert("oldInput".to_owned(), old_input.clone());
             }
         }
         metadata = metadata.into_response_metadata(&visit.context, &component, Some(&values));

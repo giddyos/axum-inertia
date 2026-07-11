@@ -1,0 +1,5 @@
+error: invalid inertia validator; expected "garde" or "validator"
+ --> tests/ui/fail/invalid_validator.rs:4:23
+  |
+4 | #[inertia(validator = "magic")]
+  |                       ^^^^^^^

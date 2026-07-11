@@ -34,6 +34,7 @@ futures-util = "0.3"
 pin-project-lite = "0.2"
 serde = { workspace = true, features = ["rc"] }
 serde_json.workspace = true
+serde_urlencoded = "0.7"
 tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
@@ -48,6 +49,8 @@ default = ["macros"]
 macros = ["dep:inertia-axum-macros"]
 cookies = ["dep:cookie"]
 tower-sessions = ["dep:tower-sessions"]
+garde = []
+validator = []
 
 [dev-dependencies]
 axum = { workspace = true, features = ["http1", "tokio"] }
@@ -55,6 +58,8 @@ criterion = "0.5"
 insta = { version = "1.48.0", features = ["json"] }
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 tower = { workspace = true, features = ["util"] }
+garde = { version = "0.22", features = ["derive"] }
+validator = { version = "0.20", features = ["derive"] }
 
 [[bench]]
 name = "request_context"
