@@ -1,0 +1,13 @@
+[package]
+name = "axum-askama"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = { workspace = true, features = ["http1", "tokio"] }
+inertia-axum = { workspace = true, features = ["askama"] }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }

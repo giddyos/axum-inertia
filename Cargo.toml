@@ -6,6 +6,7 @@ members = [
     "crates/inertia-axum-test",
     "crates/cargo-inertia",
     "examples/axum-minimal",
+    "examples/axum-askama",
     "examples/axum-svelte",
     "examples/axum-react",
     "examples/axum-vue",
