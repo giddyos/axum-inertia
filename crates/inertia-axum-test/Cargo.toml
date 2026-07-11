@@ -1,18 +1,23 @@
 [package]
 name = "inertia-axum-test"
-version = "1.0.0-alpha.1"
-edition = "2021"
-rust-version = "1.88"
-license = "MIT"
-repository = "https://github.com/giddyos/inertia-axum"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
 description = "In-process testing utilities for inertia-axum applications"
 
+[lints]
+workspace = true
+
 [dependencies]
-axum = "0.8.9"
-inertia-axum = { path = "../..", version = "1.0.0-alpha.1", features = ["test-support"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tower = { version = "0.5.3", features = ["util"] }
+axum.workspace = true
+inertia-axum = { workspace = true, features = ["test-support"] }
+serde.workspace = true
+serde_json.workspace = true
+tower = { workspace = true, features = ["util"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

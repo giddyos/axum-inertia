@@ -27,7 +27,7 @@ tests and current limitations.
 
 ```toml
 [dependencies]
-inertia-axum = { git = "https://github.com/giddyos/inertia-axum" }
+inertia-axum = "1.0.0-alpha.1"
 axum = "0.8.9"
 ```
 
@@ -98,6 +98,54 @@ assert_eq!(TodosPage::STATS.component().as_str(), "Todos/Index");
 - [`examples/axum-minimal`](examples/axum-minimal): the Todo setup above.
 - [`examples/axum-svelte`](examples/axum-svelte): Axum + Svelte 5 + Vite using
   the same convention-based application setup.
+- [`examples/todo`](examples/todo): typed partial and optional loading.
+- [`examples/incident-board`](examples/incident-board): deferred groups,
+  validation, flash, rescue, merge, scroll, and external locations.
+- [`examples/observatory`](examples/observatory): the same advanced policies in
+  an alternate domain.
+
+## Optional project commands
+
+The library works with ordinary Cargo and Vite commands. The small optional
+`cargo-inertia` package adds three conveniences:
+
+```bash
+cargo install cargo-inertia --version 1.0.0-alpha.1
+cargo inertia init --frontend svelte # or react / vue
+cargo inertia check
+cargo inertia dev
+```
+
+`init` creates a conventional `frontend` directory and prints the matching
+Rust setup. `check` verifies component declarations and frontend pages. `dev`
+runs Vite beside `cargo run` and sets `VITE_DEV_SERVER_URL` for the server.
+
+## In-process application tests
+
+Add the separate test package as a development dependency:
+
+```toml
+[dev-dependencies]
+inertia-axum-test = "1.0.0-alpha.1"
+```
+
+Typed prop keys build partial visits and decode responses without stringly
+typed heterogeneous arrays:
+
+```rust,ignore
+let page = TestApp::new(router)
+    .inertia_get("/todos")
+    .only(TodosIndexPage::STATS)
+    .send()
+    .await
+    .assert_page::<TodosIndexPage>();
+
+let stats: TodoStats = page.prop(TodosIndexPage::STATS);
+page.assert_missing(TodosIndexPage::TODOS);
+```
+
+See [the 0.5 to 1.0 alpha migration guide](docs/migration-from-0.5.md) for
+mechanical before-and-after conversions.
 
 ## Compatibility API
 

@@ -1,7 +1,7 @@
 use crate::{TestApp, TestPage};
 use axum::http::{
-    header::{CONTENT_TYPE, LOCATION},
     HeaderMap, StatusCode,
+    header::{CONTENT_TYPE, LOCATION},
 };
 use inertia_axum::{InertiaPage, X_INERTIA_LOCATION};
 
@@ -83,7 +83,7 @@ impl<'a> TestResponse<'a> {
     }
 
     /// Asserts a page version without consuming the response.
-    pub fn assert_version(&self, expected: impl ToString) -> &Self {
+    pub fn assert_version(&self, expected: impl serde::Serialize) -> &Self {
         self.parsed_page().assert_version(expected);
         self
     }

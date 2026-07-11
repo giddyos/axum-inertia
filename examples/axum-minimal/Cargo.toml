@@ -7,5 +7,5 @@ publish = false
 [dependencies]
 anyhow = "1"
 axum = { workspace = true, features = ["http1", "tokio"] }
-inertia-axum = { path = "../.." }
+inertia-axum = { workspace = true }
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }

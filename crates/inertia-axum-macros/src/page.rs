@@ -1,7 +1,7 @@
 use crate::{attributes, diagnostics::error, props};
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, DeriveInput};
+use syn::{DeriveInput, spanned::Spanned};
 
 pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     let container = attributes::container(&input.attrs)?;

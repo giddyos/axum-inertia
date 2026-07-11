@@ -29,7 +29,11 @@ jobs:
           fi
       - run: cargo test --workspace --doc
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
-      - run: cargo package -p inertia-axum
+      - run: cargo package -p inertia-axum-macros
+      - name: Package runtime against the unpublished workspace macro
+        run: cargo --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum
+      - name: Package test crate against unpublished workspace packages
+        run: cargo --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"' --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum-test
       - run: cargo bench --workspace --no-run
       - run: cargo check --workspace --all-targets --no-default-features
 
@@ -56,5 +60,7 @@ jobs:
       - run: npm ci
         working-directory: examples/axum-svelte/svelte-app
       - run: npm run build
+        working-directory: examples/axum-svelte/svelte-app
+      - run: npm test
         working-directory: examples/axum-svelte/svelte-app
       - run: cargo test --workspace

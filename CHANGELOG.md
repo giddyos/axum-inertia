@@ -4,8 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-> 0.5.0 completion work is not considered released until the final performance
-> report records same-machine Criterion results.
+## 1.0.0-alpha.1 - 2026-07-10
+
+### Added
+
+- Direct `DynamicPage` and derived `InertiaPage` handler responses with typed
+  prop keys.
+- Concurrent lazy, optional, deferred, once, rescue, merge, and infinite-scroll
+  prop policies.
+- Convention-based Vite setup, typed shared data, transient flash, forms, and
+  redirect-back validation.
+- The separate `inertia-axum-test` package and production-style Todo, incident,
+  and observatory fixtures.
+- Optional `cargo inertia init`, `dev`, and `check` commands.
+
+### Changed
+
+- Moved the runtime into a peer crate under a resolver-3 virtual workspace.
+- Preserved the 0.5 compatibility APIs while routing new direct responses
+  through the common finalizer.
+- Set the workspace MSRV to Rust 1.88 and the package edition to 2024.
+
+See [the migration guide](docs/migration-from-0.5.md) for mechanical upgrades.
 
 ## 0.5.0 - 2026-07-10
 

@@ -1,8 +1,8 @@
 use crate::{attributes, diagnostics::error};
+use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream};
-use proc_macro_crate::{crate_name, FoundCrate};
 use quote::{format_ident, quote};
-use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, Generics, Ident, Type};
+use syn::{Data, DeriveInput, Fields, Generics, Ident, Type, parse_quote, spanned::Spanned};
 
 pub(crate) struct FieldInfo {
     pub ident: Ident,

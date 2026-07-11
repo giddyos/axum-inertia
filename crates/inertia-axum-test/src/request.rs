@@ -1,9 +1,9 @@
 use crate::{TestApp, TestResponse};
 use axum::{
-    body::{to_bytes, Body},
+    body::{Body, to_bytes},
     http::{
-        header::{CONTENT_TYPE, COOKIE, SET_COOKIE},
         HeaderMap, Method, Request,
+        header::{CONTENT_TYPE, COOKIE, SET_COOKIE},
     },
     response::Response,
 };

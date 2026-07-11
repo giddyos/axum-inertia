@@ -2,7 +2,7 @@ use crate::{diagnostics::error, props};
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::BTreeSet;
-use syn::{spanned::Spanned, Data, DeriveInput, Fields, LitStr, Path};
+use syn::{Data, DeriveInput, Fields, LitStr, Path, spanned::Spanned};
 
 enum ValidationBackend {
     Garde,
@@ -36,7 +36,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
                         return Err(error(
                             value.span(),
                             "invalid inertia validator; expected \"garde\" or \"validator\"",
-                        ))
+                        ));
                     }
                 };
             } else if meta.path.is_ident("validate_with") {

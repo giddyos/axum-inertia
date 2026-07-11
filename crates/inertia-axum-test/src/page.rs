@@ -1,4 +1,5 @@
 use inertia_axum::PropKey;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 
@@ -137,8 +138,8 @@ impl TestPage {
     }
 
     /// Accepts both string and numeric expected versions.
-    pub fn assert_version(&self, expected: impl ToString) -> &Self {
-        let expected = Value::String(expected.to_string());
+    pub fn assert_version(&self, expected: impl Serialize) -> &Self {
+        let expected = serde_json::to_value(expected).expect("version must serialize");
         assert_eq!(
             self.value.get("version"),
             Some(&expected),

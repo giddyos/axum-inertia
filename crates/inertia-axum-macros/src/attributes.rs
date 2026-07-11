@@ -1,5 +1,5 @@
 use crate::diagnostics::error;
-use syn::{spanned::Spanned, Attribute, LitStr};
+use syn::{Attribute, LitStr, spanned::Spanned};
 
 #[derive(Default)]
 pub(crate) struct ContainerAttributes {
@@ -25,7 +25,10 @@ impl RenameRule {
             "snake_case" => Ok(Self::Snake),
             "kebab-case" => Ok(Self::Kebab),
             "PascalCase" => Ok(Self::Pascal),
-            _ => Err(error(value.span(), "unsupported inertia rename_all rule; expected camelCase, snake_case, kebab-case, or PascalCase")),
+            _ => Err(error(
+                value.span(),
+                "unsupported inertia rename_all rule; expected camelCase, snake_case, kebab-case, or PascalCase",
+            )),
         }
     }
     pub fn apply(self, value: &str) -> String {

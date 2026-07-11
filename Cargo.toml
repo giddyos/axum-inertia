@@ -1,108 +1,71 @@
-[package]
-name = "inertia-axum"
-version = "1.0.0-alpha.1"
-edition = "2021"
-rust-version = "1.88"
-license = "MIT"
-homepage = "https://github.com/giddyos/inertia-axum"
-repository = "https://github.com/giddyos/inertia-axum"
-description = "Inertia.js adapter for Axum"
-keywords = ["inertia", "web", "framework", "axum"]
-categories = ["web-programming"]
-readme = "README.md"
-
 [workspace]
-resolver = "2"
+resolver = "3"
 members = [
+    "crates/inertia-axum",
     "crates/inertia-axum-macros",
     "crates/inertia-axum-test",
+    "crates/cargo-inertia",
     "examples/axum-minimal",
     "examples/axum-svelte",
     "examples/todo",
     "examples/incident-board",
     "examples/observatory",
 ]
-default-members = ["."]
+default-members = [
+    "crates/inertia-axum",
+    "crates/inertia-axum-macros",
+    "crates/inertia-axum-test",
+]
+
+[workspace.package]
+version = "1.0.0-alpha.1"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/giddyos/inertia-axum"
+homepage = "https://github.com/giddyos/inertia-axum"
+authors = ["inertia-axum contributors"]
 
 [workspace.dependencies]
 axum = { version = "0.8.9", default-features = false }
+cargo_metadata = "0.20"
+clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = "1"
 tower = "0.5.3"
+inertia-axum = { path = "crates/inertia-axum", version = "1.0.0-alpha.1" }
+inertia-axum-macros = { path = "crates/inertia-axum-macros", version = "1.0.0-alpha.1" }
+inertia-axum-test = { path = "crates/inertia-axum-test", version = "1.0.0-alpha.1" }
 
-[dependencies]
-axum = { workspace = true, features = ["json", "original-uri"] }
-fluent-uri = "0.4.1"
-futures-util = "0.3"
-pin-project-lite = "0.2"
-serde = { workspace = true, features = ["rc"] }
-serde_json.workspace = true
-serde_urlencoded = "0.7"
-tower-layer = "0.3"
-tower-service = "0.3"
-tracing = "0.1"
-sha2 = "0.10"
-tower-http = { version = "0.6", features = ["fs"] }
-inertia-axum-macros = { path = "crates/inertia-axum-macros", version = "1.0.0-alpha.1", optional = true }
-cookie = { version = "0.18", features = ["secure"], optional = true }
-tower-sessions = { version = "0.14", optional = true }
+[workspace.lints.rust]
+unsafe_code = "forbid"
 
-[features]
-default = ["macros"]
-macros = ["dep:inertia-axum-macros"]
-cookies = ["dep:cookie"]
-tower-sessions = ["dep:tower-sessions"]
-garde = []
-validator = []
-test-support = []
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow"
+too_many_lines = "allow"
+return_self_not_must_use = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+map_unwrap_or = "allow"
+collapsible_if = "allow"
+semicolon_if_nothing_returned = "allow"
+format_push_string = "allow"
+redundant_closure_for_method_calls = "allow"
+unnecessary_map_or = "allow"
+wildcard_imports = "allow"
+trivially_copy_pass_by_ref = "allow"
+needless_lifetimes = "allow"
+elidable_lifetime_names = "allow"
+items_after_statements = "allow"
+ignored_unit_patterns = "allow"
+match_same_arms = "allow"
+default_trait_access = "allow"
 
-[dev-dependencies]
-axum = { workspace = true, features = ["http1", "tokio"] }
-criterion = "0.5"
-insta = { version = "1.48.0", features = ["json"] }
-tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
-tower = { workspace = true, features = ["util"] }
-garde = { version = "0.22", features = ["derive"] }
-validator = { version = "0.20", features = ["derive"] }
-
-[[bench]]
-name = "request_context"
-harness = false
-
-[[bench]]
-name = "page_render"
-harness = false
-
-[[bench]]
-name = "shared_props"
-harness = false
-
-[[bench]]
-name = "version_layer"
-harness = false
-
-[[bench]]
-name = "pending_page_finalize"
-harness = false
-
-[[bench]]
-name = "vite_initial_html"
-harness = false
-
-[[bench]]
-name = "partial_async_prop_selection"
-harness = false
-
-[[bench]]
-name = "selected_async_prop_concurrency"
-harness = false
-
-[[bench]]
-name = "unselected_async_prop"
-harness = false
-
-[[bench]]
-name = "transient_cookie_commit"
-harness = false
-required-features = ["cookies"]
+[profile.release]
+lto = "thin"
+codegen-units = 1
