@@ -1,3 +1,6 @@
 /target
 /specs
 **/*.snap.new
+examples/axum-svelte/svelte-app/node_modules/
+examples/axum-svelte/svelte-app/dist/
+examples/axum-svelte/public/build/
