@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         app_name: "Inertia Axum",
     };
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3001").await?;
+    let address = std::env::var("ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_owned());
+    let listener = tokio::net::TcpListener::bind(address).await?;
 
     axum::serve(listener, app(state, inertia)).await?;
     Ok(())
