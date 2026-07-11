@@ -14,7 +14,7 @@ use crate::{
 use crate::{
     page::{Page, PageDraft, PageMetadata},
     request::{EffectiveRequest, SelectionPlan},
-    shared::ensure_errors_prop,
+    shared::{ensure_errors_prop, insert_shared_prop_path, prop_root},
 };
 use axum::{
     http::{HeaderValue, StatusCode},
@@ -35,9 +35,14 @@ impl Engine {
         Self { app }
     }
 
-    pub(crate) async fn finalize(&self, visit: &Visit, pending: PendingResponse) -> Response {
+    pub(crate) async fn finalize(
+        &self,
+        visit: &Visit,
+        pending: PendingResponse,
+        shared: Option<crate::Props>,
+    ) -> Response {
         let result = match pending {
-            PendingResponse::Page(page) => self.finalize_page(visit, *page).await,
+            PendingResponse::Page(page) => self.finalize_page(visit, *page, shared).await,
             PendingResponse::Redirect(redirect) => {
                 let status = if is_write_method(&visit.method) {
                     StatusCode::SEE_OTHER
@@ -66,6 +71,7 @@ impl Engine {
         &self,
         visit: &Visit,
         pending: PendingPage,
+        shared: Option<crate::Props>,
     ) -> Result<Response, crate::axum::InertiaError> {
         let PendingPage {
             component,
@@ -85,8 +91,26 @@ impl Engine {
         if preserve_fragment {
             metadata = metadata.preserve_fragment();
         }
+        let mut route_roots = Vec::new();
         for prop in &props {
+            let root = prop_root(&prop.key).to_owned();
+            if !route_roots.contains(&root) {
+                route_roots.push(root);
+            }
             prop.apply_metadata(&mut metadata, !prop.is_fresh_once());
+        }
+        let mut candidates = props
+            .into_iter()
+            .map(|prop| (prop, false))
+            .collect::<Vec<_>>();
+        if let Some(shared) = shared {
+            for prop in shared.into_inner() {
+                if route_roots.iter().any(|root| root == prop_root(&prop.key)) {
+                    continue;
+                }
+                prop.apply_shared_metadata(&mut metadata);
+                candidates.push((prop, true));
+            }
         }
         let partial_enabled = visit.method == axum::http::Method::GET;
         let selected = {
@@ -96,14 +120,14 @@ impl Engine {
                 &metadata,
             );
             let mut selected = Vec::new();
-            for prop in props {
+            for (prop, shared) in candidates {
                 if plan.includes(&prop.key, prop.mode()) {
-                    selected.push(prop);
+                    selected.push((prop, shared));
                 }
             }
             selected
         };
-        for prop in &selected {
+        for (prop, _) in &selected {
             if prop.is_fresh_once() {
                 prop.apply_metadata(&mut metadata, true);
             }
@@ -112,18 +136,20 @@ impl Engine {
         type IndexedResolution = std::pin::Pin<
             Box<
                 dyn std::future::Future<
-                        Output = (usize, (String, crate::InertiaResult<Value>, bool)),
+                        Output = (usize, (String, crate::InertiaResult<Value>, bool), bool),
                     > + Send
                     + 'static,
             >,
         >;
         let mut asynchronous: Vec<IndexedResolution> = Vec::new();
-        for (index, prop) in selected.into_iter().enumerate() {
+        for (index, (prop, shared)) in selected.into_iter().enumerate() {
             resolved.push(None);
             match prop.into_resolution() {
-                crate::props::PendingResolution::Ready(result) => resolved[index] = Some(result),
+                crate::props::PendingResolution::Ready(result) => {
+                    resolved[index] = Some((result, shared))
+                }
                 crate::props::PendingResolution::Async(future) => {
-                    asynchronous.push(Box::pin(async move { (index, future.await) }))
+                    asynchronous.push(Box::pin(async move { (index, future.await, shared) }))
                 }
             }
         }
@@ -131,19 +157,22 @@ impl Engine {
             .buffered(16)
             .collect::<Vec<_>>()
             .await;
-        for (index, result) in asynchronous {
-            resolved[index] = Some(result);
+        for (index, result, shared) in asynchronous {
+            resolved[index] = Some((result, shared));
         }
         let mut values = Map::new();
-        let mut route_roots = Vec::new();
-        for (key, result, rescue) in resolved
+        let mut shared_values = Vec::new();
+        for ((key, result, rescue), is_shared) in resolved
             .into_iter()
             .map(|result| result.expect("selected prop resolved exactly once"))
         {
             match result {
                 Ok(value) => {
-                    route_roots.push(key.clone());
-                    values.insert(key, value);
+                    if is_shared {
+                        shared_values.push((key, value));
+                    } else {
+                        values.insert(key, value);
+                    }
                 }
                 Err(error) if rescue => {
                     if let Some(handler) = &self.app.inner.error_handler {
@@ -157,6 +186,11 @@ impl Engine {
             }
         }
         ensure_errors_prop(&mut values);
+        for (key, value) in shared_values {
+            if insert_shared_prop_path(&mut values, &key, value) {
+                metadata = metadata.share(prop_root(&key));
+            }
+        }
         metadata = metadata.into_response_metadata(&visit.context, &component, Some(&values));
         let page = Page::from_parts_version(
             component,

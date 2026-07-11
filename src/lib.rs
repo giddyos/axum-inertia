@@ -21,6 +21,7 @@ mod redirect;
 mod request;
 mod response;
 mod root;
+mod share;
 mod shared;
 mod typed;
 mod visit;
@@ -42,6 +43,7 @@ pub use redirect::{Location, Redirect};
 pub use request::RequestContext;
 pub use response::{DynamicPage, PendingPage, PendingResponse, PendingResponseHandle};
 pub use root::{AssetTags, MountMarkup, RootContext, RootView};
+pub use share::{Share, ShareContext};
 pub use typed::{Component, InertiaPage, IntoInertiaProps, PageOptions, PropKey, Props};
 pub use visit::Visit;
 

@@ -4,6 +4,7 @@ use crate::{
     assets::{AssetProvider, AssetRuntime, ConfigError, ErasedAssetProvider, ViteConfig},
     layer::InertiaLayer,
     root::{DefaultRoot, RootView, SharedRootView},
+    share::{Share, SharedProvider},
 };
 use axum::Router;
 use std::sync::Arc;
@@ -18,6 +19,7 @@ pub(crate) struct InertiaAppInner {
     pub(crate) root: SharedRootView,
     pub(crate) assets: AssetRuntime,
     pub(crate) error_handler: Option<Arc<dyn ErasedErrorHandler>>,
+    pub(crate) shared: Option<SharedProvider>,
 }
 
 /// Builds an [`InertiaApp`].
@@ -28,6 +30,7 @@ pub struct InertiaAppBuilder {
     asset_provider: Option<Arc<dyn ErasedAssetProvider>>,
     public_path: String,
     error_handler: Option<Arc<dyn ErasedErrorHandler>>,
+    shared: Option<SharedProvider>,
 }
 
 /// Receives deterministic reports for rescued asynchronous prop failures.
@@ -56,6 +59,7 @@ impl InertiaApp {
             asset_provider: None,
             public_path: "/build".to_owned(),
             error_handler: None,
+            shared: None,
         }
     }
 
@@ -68,6 +72,7 @@ impl InertiaApp {
             asset_provider: None,
             public_path: "/build".to_owned(),
             error_handler: None,
+            shared: None,
         }
     }
 
@@ -86,6 +91,7 @@ impl InertiaApp {
             asset_provider: None,
             public_path: "/build".to_owned(),
             error_handler: None,
+            shared: None,
         }
     }
 }
@@ -150,6 +156,12 @@ impl InertiaAppBuilder {
         self
     }
 
+    /// Installs the one typed global shared-data provider.
+    pub fn share<S: Share>(mut self, provider: S) -> Self {
+        self.shared = Some(Arc::new(provider));
+        self
+    }
+
     /// Overrides the Vite development server URL.
     pub fn dev_server(mut self, url: impl Into<String>) -> Self {
         if let Some(vite) = &mut self.vite {
@@ -170,6 +182,7 @@ impl InertiaAppBuilder {
                 root: self.root,
                 assets: self.assets,
                 error_handler: self.error_handler,
+                shared: self.shared,
             }),
         })
     }

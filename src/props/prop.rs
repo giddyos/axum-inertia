@@ -383,7 +383,7 @@ type ResolvedPropFuture =
     Pin<Box<dyn Future<Output = (String, InertiaResult<Value>, bool)> + Send + 'static>>;
 
 pub(crate) enum ErasedResolver {
-    Ready(InertiaResult<Value>),
+    Sync(Box<dyn FnOnce() -> InertiaResult<Value> + Send>),
     Async(Box<dyn FnOnce() -> ErasedValueFuture + Send>),
 }
 
@@ -453,6 +453,13 @@ impl PendingProp {
         }
     }
 
+    pub(crate) fn apply_shared_metadata(&self, metadata: &mut PageMetadata) {
+        self.apply_metadata(metadata, !self.is_fresh_once());
+        if matches!(self.options.load, LoadPolicy::Standard | LoadPolicy::Lazy) {
+            metadata.add_always(self.key.clone());
+        }
+    }
+
     pub(crate) fn mode(&self) -> crate::request::SelectionMode {
         if matches!(self.options.load, LoadPolicy::Optional) {
             crate::request::SelectionMode::Optional
@@ -467,7 +474,7 @@ impl PendingProp {
         let rescue = self.options.rescue;
         let key = self.key;
         match self.resolver {
-            ErasedResolver::Ready(result) => PendingResolution::Ready((key, result, rescue)),
+            ErasedResolver::Sync(resolve) => PendingResolution::Ready((key, resolve(), rescue)),
             ErasedResolver::Async(resolve) => {
                 PendingResolution::Async(Box::pin(async move { (key, resolve().await, rescue) }))
             }
@@ -504,9 +511,9 @@ where
     fn into_pending_prop(mut self, key: String) -> PendingProp {
         let prop = self.0.take().expect("prop adapter consumed once");
         let resolver = match prop.resolver {
-            Resolver::Immediate(value) => {
-                ErasedResolver::Ready(serde_json::to_value(value).map_err(PropError::serialization))
-            }
+            Resolver::Immediate(value) => ErasedResolver::Sync(Box::new(move || {
+                serde_json::to_value(value).map_err(PropError::serialization)
+            })),
             Resolver::Async(resolve) => ErasedResolver::Async(Box::new(move || {
                 Box::pin(async move {
                     serde_json::to_value(resolve().await?).map_err(PropError::serialization)
@@ -530,9 +537,9 @@ where
         PendingProp {
             key,
             options: PropOptions::default(),
-            resolver: ErasedResolver::Ready(
-                serde_json::to_value(value).map_err(PropError::serialization),
-            ),
+            resolver: ErasedResolver::Sync(Box::new(move || {
+                serde_json::to_value(value).map_err(PropError::serialization)
+            })),
         }
     }
 }

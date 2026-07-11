@@ -20,6 +20,8 @@ pub enum InertiaError {
     Root(Box<dyn Error + Send + Sync>),
     /// An asynchronous prop resolver failed.
     Prop(crate::PropError),
+    /// Typed shared-data preparation failed.
+    Shared(Box<dyn Error + Send + Sync>),
 }
 
 impl InertiaError {
@@ -37,6 +39,9 @@ impl InertiaError {
     pub(crate) fn prop(error: crate::PropError) -> Self {
         Self::Prop(error)
     }
+    pub(crate) fn shared(error: Box<dyn Error + Send + Sync>) -> Self {
+        Self::Shared(error)
+    }
 }
 
 impl fmt::Display for InertiaError {
@@ -47,6 +52,7 @@ impl fmt::Display for InertiaError {
             Self::InvalidUri(error) => write!(f, "invalid Inertia URI reference: {error}"),
             Self::Root(error) => write!(f, "failed to render Inertia root view: {error}"),
             Self::Prop(error) => write!(f, "failed to resolve Inertia prop: {error}"),
+            Self::Shared(error) => write!(f, "failed to prepare Inertia shared data: {error}"),
         }
     }
 }
@@ -59,6 +65,7 @@ impl Error for InertiaError {
             Self::InvalidUri(error) => Some(error),
             Self::Root(error) => Some(error.as_ref()),
             Self::Prop(error) => Some(error),
+            Self::Shared(error) => Some(error.as_ref()),
         }
     }
 }

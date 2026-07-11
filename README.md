@@ -104,6 +104,27 @@ assert_eq!(TodosPage::STATS.component().as_str(), "Todos/Index");
 The `InertiaRequest`, `VersionLayer`, and `SharedProps` APIs remain available
 through `inertia_axum::compat` during the 1.0 alpha migration.
 
+## Typed shared data
+
+Install one small typed provider with `InertiaAppBuilder::share`. Its `share`
+method runs synchronously while request headers and extensions can be borrowed;
+put database or network work in `Prop<T>` fields so the common selection engine
+can skip it.
+
+Authentication and similar middleware must wrap the Inertia layer so its
+extensions exist during shared preparation. With Axum's layer ordering, add it
+after `.inertia(...)`:
+
+```rust,ignore
+Router::new()
+    .route("/", get(index))
+    .inertia(inertia)
+    .layer(authentication_layer)
+```
+
+Route-owned roots always win over route-local and global shared values,
+including when a partial reload omits the concrete route value.
+
 Use `VersionLayer::dynamic` for a request-time asset version provider. Keep the
 provider fast and read a cached value rather than doing blocking I/O there.
 

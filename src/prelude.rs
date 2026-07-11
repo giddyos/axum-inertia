@@ -2,7 +2,7 @@
 
 pub use crate::{
     always, defer, lazy, merge, once, optional, page, scroll, DynamicPage, InertiaApp,
-    InertiaResult, Location, Prop, Redirect, RouterInertiaExt,
+    InertiaResult, Location, Prop, Redirect, RouterInertiaExt, Share, ShareContext,
 };
 
 #[cfg(feature = "macros")]

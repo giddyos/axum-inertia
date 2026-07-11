@@ -59,15 +59,6 @@ impl<'request, 'metadata> SelectionPlan<'request, 'metadata> {
             return true;
         }
 
-        if self
-            .metadata
-            .always_props()
-            .iter()
-            .any(|candidate| candidate == prop)
-        {
-            return true;
-        }
-
         let context = self.request.context();
         let explicitly_requested = self.partial_matches && context.partial_data_contains(prop);
 
@@ -90,6 +81,15 @@ impl<'request, 'metadata> SelectionPlan<'request, 'metadata> {
             && !explicitly_requested
         {
             return false;
+        }
+
+        if self
+            .metadata
+            .always_props()
+            .iter()
+            .any(|candidate| candidate == prop)
+        {
+            return true;
         }
 
         let included = if !self.partial_matches {

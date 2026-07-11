@@ -64,7 +64,7 @@ pin_project! {
     /// Concrete future used by [`InertiaService`].
     #[project = InertiaFutureProj]
     pub enum InertiaFuture<F, E> {
-        Inner { #[pin] future: F, visit: Option<Visit>, engine: Engine },
+        Inner { #[pin] future: F, visit: Option<Visit>, shared: Option<crate::Props>, engine: Engine },
         Finalizing { #[pin] future: std::pin::Pin<Box<dyn Future<Output = Response> + Send>>, error: std::marker::PhantomData<E> },
         Ready { response: Option<Result<Response, E>> },
     }
@@ -92,6 +92,7 @@ where
                 InertiaFutureProj::Inner {
                     future,
                     visit,
+                    shared,
                     engine,
                 } => match future.poll(cx) {
                     Poll::Pending => return Poll::Pending,
@@ -106,9 +107,12 @@ where
                             return Poll::Ready(Ok(response));
                         };
                         let visit = visit.take().expect("visit available while finalizing");
+                        let shared = shared.take();
                         let engine = engine.clone();
                         self.set(InertiaFuture::Finalizing {
-                            future: Box::pin(async move { engine.finalize(&visit, pending).await }),
+                            future: Box::pin(async move {
+                                engine.finalize(&visit, pending, shared).await
+                            }),
                             error: std::marker::PhantomData,
                         });
                     }
@@ -159,6 +163,26 @@ where
                 .and_then(|value| value.to_str().ok())
                 .map(Into::into),
         };
+        let shared = if let Some(provider) = &self.app.inner.shared {
+            match provider.prepare(crate::ShareContext::new(
+                request.method(),
+                request.uri(),
+                request.headers(),
+                request.extensions(),
+                &visit,
+            )) {
+                Ok(shared) => Some(shared),
+                Err(error) => {
+                    return InertiaFuture::Ready {
+                        response: Some(Ok(internal_error_response(
+                            crate::axum::InertiaError::shared(error),
+                        ))),
+                    }
+                }
+            }
+        } else {
+            None
+        };
         request.extensions_mut().insert(visit.clone());
         if let Some(version) = configured_version {
             request
@@ -168,6 +192,7 @@ where
         InertiaFuture::Inner {
             future: self.inner.call(request),
             visit: Some(visit),
+            shared,
             engine: self.engine.clone(),
         }
     }
