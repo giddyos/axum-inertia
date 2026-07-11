@@ -1,17 +1,20 @@
 //! Asset providers and convention-based Vite startup configuration.
 
 use crate::AssetTags;
+#[cfg(feature = "vite")]
 use axum::http::Uri;
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "vite")]
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Number;
+#[cfg(feature = "vite")]
 use sha2::{Digest, Sha256};
+use std::{borrow::Cow, error::Error, fmt, sync::Arc};
+#[cfg(feature = "vite")]
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
-    error::Error,
-    fmt, fs,
+    fs,
     path::PathBuf,
-    sync::Arc,
 };
 
 /// A scalar Inertia asset version retaining its JSON number-or-string form.
@@ -75,6 +78,7 @@ impl<'a> AssetContext<'a> {
 /// Asset provider failure.
 pub type AssetError = Box<dyn Error + Send + Sync>;
 /// Static build-directory service returned by providers.
+#[cfg(feature = "vite")]
 pub type StaticAssetService = tower_http::services::ServeDir;
 
 /// Advanced interface for non-Vite asset pipelines.
@@ -84,6 +88,7 @@ pub trait AssetProvider: Clone + Send + Sync + 'static {
     /// Renders safe script/style markup.
     fn render_tags(&self, context: AssetContext<'_>) -> Result<AssetTags, AssetError>;
     /// Returns an optional static service.
+    #[cfg(feature = "vite")]
     fn static_service(&self) -> Option<StaticAssetService> {
         None
     }
@@ -95,6 +100,8 @@ pub(crate) trait ErasedAssetProvider: Send + Sync {
 
 impl<P: AssetProvider> ErasedAssetProvider for P {
     fn build_runtime(&self, public_path: &str) -> Result<AssetRuntime, ConfigError> {
+        #[cfg(not(feature = "vite"))]
+        let _ = public_path;
         let tags = self.render_tags(AssetContext::default()).map_err(|error| {
             ConfigError::new(format!(
                 "inertia-axum asset configuration error\n\nCould not render asset tags: {error}"
@@ -106,6 +113,7 @@ impl<P: AssetProvider> ErasedAssetProvider for P {
             version: Some(version),
             header_version: Some(header_version),
             tags,
+            #[cfg(feature = "vite")]
             static_mount: self
                 .static_service()
                 .map(|service| (public_path.to_owned(), service)),
@@ -118,6 +126,7 @@ pub(crate) struct AssetRuntime {
     pub(crate) version: Option<AssetVersion>,
     pub(crate) header_version: Option<Arc<str>>,
     pub(crate) tags: AssetTags,
+    #[cfg(feature = "vite")]
     pub(crate) static_mount: Option<(String, StaticAssetService)>,
 }
 
@@ -127,6 +136,7 @@ impl Default for AssetRuntime {
             version: None,
             header_version: None,
             tags: AssetTags::empty(),
+            #[cfg(feature = "vite")]
             static_mount: None,
         }
     }
@@ -149,6 +159,7 @@ impl fmt::Display for ConfigError {
 impl Error for ConfigError {}
 
 #[derive(Clone, Debug)]
+#[cfg(feature = "vite")]
 pub(crate) struct ViteConfig {
     pub(crate) root: PathBuf,
     pub(crate) entry: PathBuf,
@@ -158,6 +169,7 @@ pub(crate) struct ViteConfig {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg(feature = "vite")]
 struct ManifestEntry {
     file: String,
     #[serde(default)]
@@ -166,6 +178,7 @@ struct ManifestEntry {
     imports: Vec<String>,
 }
 
+#[cfg(feature = "vite")]
 impl ViteConfig {
     pub(crate) fn build(self) -> Result<AssetRuntime, ConfigError> {
         if let Some(url) = self
@@ -275,6 +288,7 @@ impl ViteConfig {
     }
 }
 
+#[cfg(feature = "vite")]
 fn escape_attribute(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -283,6 +297,7 @@ fn escape_attribute(value: &str) -> String {
         .replace('>', "&gt;")
 }
 
+#[cfg(feature = "vite")]
 fn resolve_manifest(
     key: &str,
     manifest: &BTreeMap<String, ManifestEntry>,

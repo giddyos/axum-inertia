@@ -9,6 +9,7 @@ use std::fmt;
 use tracing::error;
 
 #[derive(Debug)]
+/// Error returned by compatibility rendering and finalization helpers.
 pub enum InertiaError {
     /// The page object could not be serialized.
     Serialization(serde_json::Error),

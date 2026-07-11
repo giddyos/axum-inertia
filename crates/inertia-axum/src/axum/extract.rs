@@ -14,6 +14,7 @@ use axum::http::request::Parts;
 use std::convert::Infallible;
 use std::fmt;
 
+/// Compatibility extractor for explicit protocol-aware request handling.
 pub struct InertiaRequest {
     pub(crate) context: RequestContext,
     pub(crate) method: Method,

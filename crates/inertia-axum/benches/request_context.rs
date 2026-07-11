@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use inertia_axum::{
     CACHE_CONTROL, PURPOSE, RequestContext, X_INERTIA, X_INERTIA_ERROR_BAG,

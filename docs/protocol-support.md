@@ -19,31 +19,29 @@ Status vocabulary:
 | Request header parsing | Supported | `protocol_v3::request_headers::request_context_parses_all_supported_headers` |
 | Partial reloads and component mismatch | Supported | `protocol_v3::partial_reloads::*` |
 | Merge and deep-merge metadata | Supported | `protocol_v3::page_objects::page_serializes_all_supported_v3_metadata` |
-| Deferred props | Partial | `protocol_v3::lazy_deferred_once::lazy_optional_and_deferred_props_follow_selection_rules` |
-| Lazy and optional props | Partial | `protocol_v3::lazy_deferred_once::lazy_optional_and_deferred_props_follow_selection_rules` |
+| Deferred props | Supported | `unified_props::optional_deferred_always_and_partial_precedence_match_protocol` |
+| Lazy and optional props | Supported | `unified_props::unselected_resolvers_do_not_construct_their_futures` |
 | Once props | Supported | `protocol_v3::lazy_deferred_once::once_props_support_exclusion_explicit_reload_and_expiration` |
 | Shared props | Supported | `protocol_v3::shared_props::fixed_and_request_aware_shared_props_merge_and_dedupe_roots` |
 | History flags | Supported | `protocol_v3::page_objects::page_serializes_all_supported_v3_metadata` |
 | Scroll and infinite-scroll metadata | Supported | `protocol_v3::merge_and_scroll::*` |
 | Reset metadata | Supported | `protocol_v3::merge_and_scroll::reset_removes_only_matching_metadata` |
-| Errors prop and error-bag headers | Partial | `protocol_v3::errors::*` |
+| Errors prop and error-bag headers | Supported | `forms_validation::invalid_json_redirects_before_handler_and_request_bag_wins` |
 | External location redirects | Supported | `protocol_v3::redirects::external_locations_use_protocol_conflicts_and_fragments_redirect_header` |
 | Write-method redirects | Supported | `protocol_v3::redirects::direct_location_and_application_redirects_are_method_aware` |
 | Not-found passthrough | Supported | `protocol_v3::versioning::dynamic_version_is_resolved_per_request_and_not_found_passthrough` |
-| Rescued deferred props | Partial | `protocol_v3::page_objects::metadata_for_filtered_props_is_removed_and_rescued_metadata_serializes` |
-| Numeric asset versions | Not supported | Versions are strings only |
-| Flash data reflashing | Not supported | Not implemented by this crate |
+| Rescued deferred props | Supported | `unified_props::rescued_failures_are_omitted_reported_and_deterministic` |
+| Numeric asset versions | Supported | `vite::numeric_asset_versions_retain_json_scalar_and_normalize_headers` |
+| Flash data reflashing | Supported | `transient_flash::stale_version_conflict_reflashes_without_running_handler` |
 | Precognition | Not supported | Not implemented |
 | SSR bridge | Not supported | Not implemented |
-| Async prop resolvers | Not supported | Synchronous resolvers only |
+| Async prop resolvers | Supported | `unified_props::selected_async_resolvers_run_concurrently` |
 
-Deferred, lazy, and optional prop support is marked `Partial` because the
-current prop container supports synchronous resolvers only. Async prop
-resolvers remain planned.
+Async prop selection happens before resolver invocation, so unselected lazy,
+optional, deferred, or once futures are never constructed or polled. Selected
+resolvers execute concurrently, while rescued failures are reported,
+deterministically omitted, and represented in `rescuedProps`.
 
-Errors support is marked `Partial` because the protocol header is parsed and
-the `errors` prop shape is preserved, but the Axum integration does not provide
-a framework-level validation error bag or flash-message integration.
-
-Rescued-prop support is metadata-only: resolver failures are not caught and
-converted into rescued values by the crate.
+Validation failures use redirect-back transient state rather than `422` JSON.
+Errors and optional redacted old input appear on the next page; flash values
+use the separate `page.flash` namespace and are consumed once.

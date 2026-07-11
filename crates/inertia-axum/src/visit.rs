@@ -1,7 +1,7 @@
 //! Advanced request access for protocol-aware handlers.
 
 use crate::{
-    RequestContext,
+    PropKey, RequestContext,
     axum::response_headers::{local_uri, request_context},
 };
 use axum::{
@@ -55,6 +55,33 @@ impl Visit {
     /// Iterates once props already held by the client.
     pub fn except_once_props(&self) -> impl Iterator<Item = &str> {
         self.context.except_once_props_iter()
+    }
+    /// Returns whether a standard eager prop is selected for this visit.
+    ///
+    /// This advanced escape hatch avoids repository work that must happen
+    /// before a typed page can be constructed. Async [`crate::Prop`] resolvers
+    /// are selected lazily by the finalizer and do not need it.
+    pub fn selects<T>(&self, key: PropKey<T>) -> bool {
+        if self.method != Method::GET
+            || !self
+                .context
+                .partial_reload_matches(key.component().as_str())
+        {
+            return true;
+        }
+        if self.context.partial_except_iter().next().is_some() {
+            return !self
+                .context
+                .partial_except_iter()
+                .any(|name| name == key.name());
+        }
+        if self.context.partial_data_iter().next().is_some() {
+            return self
+                .context
+                .partial_data_iter()
+                .any(|name| name == key.name());
+        }
+        true
     }
     /// Returns the requested validation error bag.
     pub fn error_bag(&self) -> Option<&str> {

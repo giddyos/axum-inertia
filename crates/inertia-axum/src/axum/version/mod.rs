@@ -30,6 +30,7 @@ impl VersionSource {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Request-local normalized asset version inserted by version middleware.
 pub struct InertiaVersion(Arc<str>);
 
 impl InertiaVersion {

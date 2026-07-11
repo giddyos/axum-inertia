@@ -195,7 +195,17 @@ fn persist_cookies(app: &TestApp, headers: &HeaderMap) {
         if let Ok(value) = value.to_str() {
             if let Some(pair) = value.split(';').next() {
                 if let Some((name, _)) = pair.split_once('=') {
-                    cookies.insert(name.to_owned(), pair.to_owned());
+                    let deleted = value.split(';').skip(1).map(str::trim).any(|attribute| {
+                        attribute.eq_ignore_ascii_case("max-age=0")
+                            || attribute
+                                .to_ascii_lowercase()
+                                .starts_with("expires=thu, 01 jan 1970")
+                    });
+                    if deleted {
+                        cookies.remove(name);
+                    } else {
+                        cookies.insert(name.to_owned(), pair.to_owned());
+                    }
                 }
             }
         }

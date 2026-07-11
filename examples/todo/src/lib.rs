@@ -1,5 +1,6 @@
 use axum::{routing::get, Router};
 use inertia_axum::prelude::*;
+use inertia_axum::Visit;
 use serde::{Deserialize, Serialize};
 use std::{
     convert::Infallible,
@@ -64,14 +65,19 @@ pub fn app(repository: Repository) -> Router {
     Router::new()
         .route(
             "/todos",
-            get(move || {
+            get(move |visit: Visit| {
                 let repository = repository.clone();
                 async move {
-                    repository.searches.fetch_add(1, Ordering::SeqCst);
+                    let todos = if visit.selects(TodosIndexPage::TODOS) {
+                        repository.searches.fetch_add(1, Ordering::SeqCst);
+                        repository.todos.as_ref().clone()
+                    } else {
+                        Vec::new()
+                    };
                     let stats_repo = repository.clone();
                     let archived_repo = repository.clone();
                     TodosIndexPage {
-                        todos: repository.todos.as_ref().clone(),
+                        todos,
                         filters: TodoFilters::default(),
                         can_create: true,
                         stats: defer(move || async move {
@@ -103,6 +109,7 @@ mod tests {
     async fn initial_html_and_selective_loading_are_typed() {
         let repository = Repository::fixture();
         let archived = repository.archived.clone();
+        let searches = repository.searches.clone();
         let app = TestApp::new(app(repository));
         app.get("/todos")
             .send()
@@ -111,6 +118,7 @@ mod tests {
             .assert_html()
             .assert_html_page::<TodosIndexPage>();
         assert_eq!(archived.load(Ordering::SeqCst), 0);
+        assert_eq!(searches.load(Ordering::SeqCst), 1);
         let page = app
             .inertia_get("/todos")
             .only(TodosIndexPage::STATS)
@@ -120,6 +128,11 @@ mod tests {
         assert_eq!(page.prop(TodosIndexPage::STATS).total, 1);
         page.assert_missing(TodosIndexPage::TODOS)
             .assert_missing(TodosIndexPage::ARCHIVED);
+        assert_eq!(
+            searches.load(Ordering::SeqCst),
+            1,
+            "stats partial loaded todos"
+        );
         app.inertia_get("/todos")
             .only(TodosIndexPage::ARCHIVED)
             .send()

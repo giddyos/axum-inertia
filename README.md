@@ -14,7 +14,7 @@ inertia-axum supports the core Inertia response flow for Axum:
 - Asset version checks and stale-visit handling.
 - Inertia v3 metadata for partial reloads, merge props, deferred props, once
   props, history flags, and infinite-scroll metadata.
-- Synchronous lazy, optional, deferred, and once prop resolvers.
+- Concurrent lazy, optional, deferred, rescued, and once prop resolvers.
 - Shared props with request-aware providers.
 - External-location and method-aware redirect helpers.
 
@@ -238,7 +238,7 @@ Inertia::response("Users/Index", props)
     .merge("users");
 ```
 
-The root crate also exposes `Page`, `PageMetadata`, `RequestContext`,
+The runtime crate also exposes `Page`, `PageMetadata`, `RequestContext`,
 `InertiaProps`, and `ScopedInertiaProps` for framework-neutral protocol work.
 
 ## Shared Props

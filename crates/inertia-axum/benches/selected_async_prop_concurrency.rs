@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use axum::{Router, body::Body, http::Request, routing::get};
 use criterion::{Criterion, criterion_group, criterion_main};
 use inertia_axum::{DynamicPage, InertiaApp, RouterInertiaExt, X_INERTIA, lazy};

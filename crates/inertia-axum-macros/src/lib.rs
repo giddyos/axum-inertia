@@ -9,6 +9,7 @@ mod page;
 mod props;
 
 #[proc_macro_derive(InertiaPage, attributes(inertia))]
+/// Derives a typed direct-response Inertia page and its prop keys.
 pub fn derive_page(input: TokenStream) -> TokenStream {
     page::expand(syn::parse_macro_input!(input))
         .unwrap_or_else(syn::Error::into_compile_error)
@@ -16,6 +17,7 @@ pub fn derive_page(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(InertiaProps, attributes(inertia))]
+/// Derives field-by-field conversion for typed shared or page props.
 pub fn derive_props(input: TokenStream) -> TokenStream {
     props::expand(syn::parse_macro_input!(input))
         .unwrap_or_else(syn::Error::into_compile_error)
@@ -23,6 +25,7 @@ pub fn derive_props(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_derive(InertiaForm, attributes(inertia))]
+/// Derives Inertia form validation metadata and adapters.
 pub fn derive_form(input: TokenStream) -> TokenStream {
     form::expand(syn::parse_macro_input!(input))
         .unwrap_or_else(syn::Error::into_compile_error)

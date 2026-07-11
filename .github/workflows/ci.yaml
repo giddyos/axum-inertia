@@ -34,6 +34,7 @@ jobs:
         run: cargo --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum
       - name: Package test crate against unpublished workspace packages
         run: cargo --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"' --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum-test
+      - run: cargo package -p cargo-inertia
       - run: cargo bench --workspace --no-run
       - run: cargo check --workspace --all-targets --no-default-features
 

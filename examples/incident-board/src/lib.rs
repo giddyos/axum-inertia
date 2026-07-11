@@ -152,10 +152,17 @@ mod tests {
             .assert_page::<IncidentShowPage>();
         initial
             .assert_scroll(IncidentShowPage::TIMELINE)
+            .assert_deferred("telemetry", IncidentShowPage::TELEMETRY)
+            .assert_deferred("telemetry", IncidentShowPage::AFFECTED_MACHINES)
+            .assert_once("incident-playbooks:v3", IncidentShowPage::PLAYBOOKS)
             .assert_appends(IncidentShowPage::PARTICIPANTS)
             .assert_matches_on(IncidentShowPage::PARTICIPANTS, "id")
             .assert_encrypts_history()
             .assert_version(42_u64);
+        initial
+            .assert_missing(IncidentShowPage::TELEMETRY)
+            .assert_missing(IncidentShowPage::AFFECTED_MACHINES)
+            .assert_missing(IncidentShowPage::RAW_CONTROLLER_PAYLOADS);
         assert_eq!(raw.load(Ordering::SeqCst), 0);
         app.inertia_get("/incidents/1")
             .only(IncidentShowPage::RAW_CONTROLLER_PAYLOADS)

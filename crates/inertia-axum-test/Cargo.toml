@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
-description = "In-process testing utilities for inertia-axum applications"
+description = "Testing utilities for inertia-axum applications"
 
 [lints]
 workspace = true

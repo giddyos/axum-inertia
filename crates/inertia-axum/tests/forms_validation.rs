@@ -1,3 +1,5 @@
+//! Redirect-based form validation integration coverage.
+
 #![cfg(feature = "macros")]
 
 use axum::{

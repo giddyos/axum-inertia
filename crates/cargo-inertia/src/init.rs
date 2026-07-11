@@ -7,10 +7,11 @@ pub fn run(root: &Path, framework: Frontend) -> Result<(), String> {
         return Err(format!("{} already exists", frontend.display()));
     }
     fs::create_dir_all(frontend.join("src/Pages")).map_err(|error| error.to_string())?;
-    let (dependency, plugin, extension, main, home) = match framework {
+    let (plugin_dependency, name, dependencies, extension, main, home) = match framework {
         Frontend::Svelte => (
             "@sveltejs/vite-plugin-svelte",
             "svelte",
+            r#""@inertiajs/svelte": "^3.0.0", "svelte": "latest""#,
             "svelte",
             SVELTE_MAIN,
             SVELTE_HOME,
@@ -18,19 +19,27 @@ pub fn run(root: &Path, framework: Frontend) -> Result<(), String> {
         Frontend::React => (
             "@vitejs/plugin-react",
             "react",
+            r#""@inertiajs/react": "^3.0.0", "react": "latest", "react-dom": "latest""#,
             "tsx",
             REACT_MAIN,
             REACT_HOME,
         ),
-        Frontend::Vue => ("@vitejs/plugin-vue", "vue", "vue", VUE_MAIN, VUE_HOME),
+        Frontend::Vue => (
+            "@vitejs/plugin-vue",
+            "vue",
+            r#""@inertiajs/vue3": "^3.0.0", "vue": "latest""#,
+            "vue",
+            VUE_MAIN,
+            VUE_HOME,
+        ),
     };
     let package = format!(
         r#"{{
   "private": true,
   "type": "module",
   "scripts": {{ "dev": "vite", "build": "vite build" }},
-  "dependencies": {{ "@inertiajs/core": "^3.0.0", "@inertiajs/{plugin}": "^3.0.0", "{plugin}": "latest" }},
-  "devDependencies": {{ "vite": "latest", "{dependency}": "latest", "typescript": "latest" }}
+  "dependencies": {{ {dependencies} }},
+  "devDependencies": {{ "vite": "latest", "{plugin_dependency}": "latest", "typescript": "latest" }}
 }}
 "#
     );
@@ -38,7 +47,7 @@ pub fn run(root: &Path, framework: Frontend) -> Result<(), String> {
     write(&frontend.join("vite.config.ts"), &vite_config(framework))?;
     write(&frontend.join("src/main.ts"), main)?;
     write(&frontend.join(format!("src/Pages/Home.{extension}")), home)?;
-    println!("Created {} frontend in {}", plugin, frontend.display());
+    println!("Created {} frontend in {}", name, frontend.display());
     println!("\nRust setup:\n\n.inertia(InertiaApp::vite(\"frontend\").build()?)");
     Ok(())
 }
@@ -63,7 +72,7 @@ fn write(path: &Path, contents: &str) -> Result<(), String> {
 
 const SVELTE_MAIN: &str = "import { createInertiaApp } from '@inertiajs/svelte';\nimport { mount } from 'svelte';\ncreateInertiaApp({ resolve: name => import(`./Pages/${name}.svelte`), setup: ({ el, App, props }) => mount(App, { target: el, props }) });\n";
 const SVELTE_HOME: &str = "<script lang=\"ts\">let { greeting = 'Hello' } = $props();</script>\n<h1>{greeting} from inertia-axum</h1>\n";
-const REACT_MAIN: &str = "import { createInertiaApp } from '@inertiajs/react';\nimport { createRoot } from 'react-dom/client';\ncreateInertiaApp({ resolve: name => import(`./Pages/${name}.tsx`), setup: ({ el, App, props }) => createRoot(el).render(<App {...props} />) });\n";
+const REACT_MAIN: &str = "import { createElement } from 'react';\nimport { createInertiaApp } from '@inertiajs/react';\nimport { createRoot } from 'react-dom/client';\ncreateInertiaApp({ resolve: name => import(`./Pages/${name}.tsx`), setup: ({ el, App, props }) => createRoot(el).render(createElement(App, props)) });\n";
 const REACT_HOME: &str = "export default function Home({ greeting = 'Hello' }) { return <h1>{greeting} from inertia-axum</h1>; }\n";
 const VUE_MAIN: &str = "import { createApp, h } from 'vue';\nimport { createInertiaApp } from '@inertiajs/vue3';\ncreateInertiaApp({ resolve: name => import(`./Pages/${name}.vue`), setup: ({ el, App, props, plugin }) => createApp({ render: () => h(App, props) }).use(plugin).mount(el) });\n";
 const VUE_HOME: &str = "<script setup lang=\"ts\">withDefaults(defineProps<{ greeting?: string }>(), { greeting: 'Hello' });</script>\n<template><h1>{{ greeting }} from inertia-axum</h1></template>\n";
@@ -74,10 +83,10 @@ mod tests {
 
     #[test]
     fn creates_each_supported_framework_skeleton() {
-        for (name, framework, extension) in [
-            ("svelte", Frontend::Svelte, "svelte"),
-            ("react", Frontend::React, "tsx"),
-            ("vue", Frontend::Vue, "vue"),
+        for (name, framework, extension, adapter) in [
+            ("svelte", Frontend::Svelte, "svelte", "@inertiajs/svelte"),
+            ("react", Frontend::React, "tsx", "@inertiajs/react"),
+            ("vue", Frontend::Vue, "vue", "@inertiajs/vue3"),
         ] {
             let root = std::env::temp_dir()
                 .join(format!("cargo-inertia-init-{name}-{}", std::process::id()));
@@ -87,6 +96,8 @@ mod tests {
             assert!(root.join("frontend/package.json").is_file());
             assert!(root.join("frontend/vite.config.ts").is_file());
             assert!(root.join("frontend/src/main.ts").is_file());
+            let package = fs::read_to_string(root.join("frontend/package.json")).unwrap();
+            assert!(package.contains(adapter));
             assert!(
                 root.join(format!("frontend/src/Pages/Home.{extension}"))
                     .is_file()

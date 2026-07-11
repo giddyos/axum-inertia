@@ -40,6 +40,7 @@ inertia-axum-test = { path = "crates/inertia-axum-test", version = "1.0.0-alpha.
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
@@ -65,6 +66,7 @@ items_after_statements = "allow"
 ignored_unit_patterns = "allow"
 match_same_arms = "allow"
 default_trait_access = "allow"
+similar_names = "allow"
 
 [profile.release]
 lto = "thin"

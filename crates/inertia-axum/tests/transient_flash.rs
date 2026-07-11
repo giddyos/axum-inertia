@@ -1,3 +1,5 @@
+//! Transient flash lifecycle integration coverage.
+
 use axum::{
     Router,
     body::{Body, to_bytes},

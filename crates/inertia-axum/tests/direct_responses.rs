@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use axum::{
     Router,
     body::{Body, to_bytes},
@@ -8,10 +10,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
+use inertia_axum::axum::{InertiaError, InertiaRequest};
 use inertia_axum::{
-    DynamicPage, InertiaApp, Location, PendingResponseHandle, Redirect, RootContext, RootView,
-    RouterInertiaExt, Visit, X_INERTIA, X_INERTIA_LOCATION, X_INERTIA_REDIRECT, X_INERTIA_VERSION,
-    page,
+    DynamicPage, Inertia, InertiaApp, Location, PendingResponseHandle, Redirect, RootContext,
+    RootView, RouterInertiaExt, Visit, X_INERTIA, X_INERTIA_LOCATION, X_INERTIA_REDIRECT,
+    X_INERTIA_VERSION, page,
 };
 use serde_json::{Value, json};
 use std::{
@@ -80,6 +83,40 @@ async fn direct_page_is_finalized_as_inertia_json() {
     assert_eq!(page["props"], json!({"errors": {}, "message": "Hello"}));
     assert_eq!(page["url"], "/?tab=all");
     assert_eq!(page["version"], VERSION);
+}
+
+#[tokio::test]
+async fn compatibility_and_direct_paths_emit_byte_equivalent_pages() {
+    async fn direct() -> DynamicPage {
+        page!("Home", { message: "Hello" })
+    }
+    async fn compatibility(request: InertiaRequest) -> Result<Response, InertiaError> {
+        request.render(
+            Inertia::response("Home", json!({"message": "Hello"})),
+            |_| "unused for Inertia JSON",
+        )
+    }
+    let direct = Router::new()
+        .route("/same", get(direct))
+        .inertia(InertiaApp::default_root().version(VERSION).build().unwrap());
+    let compatibility = Router::new()
+        .route("/same", get(compatibility))
+        .inertia(InertiaApp::default_root().version(VERSION).build().unwrap());
+    let direct = body(
+        direct
+            .oneshot(inertia_request(Method::GET, "/same"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    let compatibility = body(
+        compatibility
+            .oneshot(inertia_request(Method::GET, "/same"))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(direct.as_bytes(), compatibility.as_bytes());
 }
 
 #[test]

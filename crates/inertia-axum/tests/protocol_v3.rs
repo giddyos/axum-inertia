@@ -1,3 +1,5 @@
+//! Inertia v3 protocol conformance suite.
+
 #[path = "protocol_v3/support.rs"]
 mod support;
 

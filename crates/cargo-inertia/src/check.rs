@@ -122,6 +122,7 @@ fn literal_components(source: &str) -> Vec<String> {
 fn validate_component(value: &str) -> Result<(), String> {
     let path = Path::new(value);
     if value.is_empty()
+        || value.split('/').any(str::is_empty)
         || value.contains('\\')
         || path.is_absolute()
         || path
@@ -188,6 +189,7 @@ mod tests {
     #[test]
     fn rejects_parent_paths() {
         assert!(validate_component("../Secret").is_err());
+        assert!(validate_component("Todos//Index").is_err());
     }
 
     #[test]
@@ -219,6 +221,75 @@ mod tests {
             run(&root, Path::new("frontend"))
                 .unwrap_err()
                 .contains("no matching page")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn reports_manifest_entry_path_and_duplicate_failures() {
+        let root =
+            std::env::temp_dir().join(format!("cargo-inertia-check-errors-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("frontend/src/Pages/Todos")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname='check-errors'\nversion='0.1.0'\nedition='2021'\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "#[inertia(component = \"Todos/Index\")]\nstruct Page;\n",
+        )
+        .unwrap();
+        fs::write(root.join("frontend/src/main.ts"), "").unwrap();
+        fs::write(root.join("frontend/vite.config.ts"), "input: 'wrong.ts'").unwrap();
+        fs::write(root.join("frontend/src/Pages/Todos/Index.svelte"), "").unwrap();
+        assert!(
+            run(&root, Path::new("frontend"))
+                .unwrap_err()
+                .contains("does not match")
+        );
+
+        fs::write(root.join("frontend/vite.config.ts"), "input: 'src/main.ts'").unwrap();
+        fs::create_dir_all(root.join("frontend/dist/.vite")).unwrap();
+        fs::write(root.join("frontend/dist/.vite/manifest.json"), "not json").unwrap();
+        assert!(
+            run(&root, Path::new("frontend"))
+                .unwrap_err()
+                .contains("invalid Vite manifest")
+        );
+        fs::write(root.join("frontend/dist/.vite/manifest.json"), "{}").unwrap();
+
+        fs::write(
+            root.join("src/duplicate.rs"),
+            "#[inertia(component = \"Todos/Index\")]\nstruct Duplicate;\n",
+        )
+        .unwrap();
+        assert!(
+            run(&root, Path::new("frontend"))
+                .unwrap_err()
+                .contains("duplicate component")
+        );
+        fs::remove_file(root.join("src/duplicate.rs")).unwrap();
+
+        fs::write(
+            root.join("src/invalid.rs"),
+            "#[inertia(component = \"../Escape\")]\nstruct Invalid;\n",
+        )
+        .unwrap();
+        assert!(
+            run(&root, Path::new("frontend"))
+                .unwrap_err()
+                .contains("invalid component path")
+        );
+        fs::remove_file(root.join("src/invalid.rs")).unwrap();
+
+        fs::write(root.join("frontend/src/Pages/Todos/Index.vue"), "").unwrap();
+        assert!(
+            run(&root, Path::new("frontend"))
+                .unwrap_err()
+                .contains("duplicate frontend page")
         );
         fs::remove_dir_all(root).unwrap();
     }

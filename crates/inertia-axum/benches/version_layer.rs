@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use inertia_axum::axum::VersionLayer;
 

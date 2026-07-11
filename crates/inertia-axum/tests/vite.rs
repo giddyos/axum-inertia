@@ -1,3 +1,7 @@
+//! Convention-based Vite integration coverage.
+
+#![cfg(feature = "vite")]
+
 use axum::{
     Router,
     body::{Body, to_bytes},

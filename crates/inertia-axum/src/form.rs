@@ -21,20 +21,25 @@ use std::{
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Errors(Map<String, Value>);
 impl Errors {
+    /// Creates an empty error map.
     pub fn new() -> Self {
         Self::default()
     }
+    /// Inserts or replaces a field error.
     pub fn add(&mut self, field: impl Into<String>, message: impl Into<String>) {
         self.0.insert(field.into(), Value::String(message.into()));
     }
+    /// Creates an error map containing one field error.
     pub fn field(field: impl Into<String>, message: impl Into<String>) -> Self {
         let mut errors = Self::new();
         errors.add(field, message);
         errors
     }
+    /// Returns whether no field errors are present.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+    /// Converts this map to its JSON representation.
     pub fn into_value(self) -> Value {
         Value::Object(self.0)
     }
@@ -42,10 +47,13 @@ impl Errors {
 
 /// Local validation contract implemented by derives or application code.
 pub trait Validate {
+    /// Validates this form value.
     fn validate(&self) -> Result<(), Errors>;
+    /// Returns the derive-level fallback error bag.
     fn error_bag() -> Option<&'static str> {
         None
     }
+    /// Returns explicitly enabled, redacted old input.
     fn old_input(&self) -> Option<Value> {
         None
     }
@@ -58,9 +66,11 @@ pub struct InertiaForm<T> {
     back: Box<str>,
 }
 impl<T> InertiaForm<T> {
+    /// Returns the parsed value without performing validation.
     pub fn into_inner(self) -> T {
         self.input
     }
+    /// Applies application-defined validation to the parsed value.
     pub fn validate_with<F>(self, validate: F) -> Result<T, FormError>
     where
         F: FnOnce(&T) -> Result<(), Errors>,
@@ -87,9 +97,13 @@ impl<T> DerefMut for InertiaForm<T> {
 pub struct Validated<T>(pub T);
 
 #[derive(Debug)]
+/// Form extraction or redirect-based validation failure.
 pub enum FormError {
+    /// The supported request body could not be decoded.
     BadRequest(String),
+    /// The request content type requires a separate extractor.
     UnsupportedMediaType,
+    /// Semantic validation failed and must be transported through a redirect.
     Validation(crate::response::PendingValidation),
 }
 impl FormError {

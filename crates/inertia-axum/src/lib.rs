@@ -29,9 +29,9 @@ mod typed;
 mod visit;
 
 pub use app::{ErrorHandler, InertiaApp, InertiaAppBuilder, RouterInertiaExt};
-pub use assets::{
-    AssetContext, AssetError, AssetProvider, AssetVersion, ConfigError, StaticAssetService,
-};
+#[cfg(feature = "vite")]
+pub use assets::StaticAssetService;
+pub use assets::{AssetContext, AssetError, AssetProvider, AssetVersion, ConfigError};
 pub use form::{Errors, FormError, InertiaForm as Form, Validate, Validated};
 pub use headers::*;
 pub use html::HtmlResponseContext;

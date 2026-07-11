@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use inertia_axum::{Page, PageMetadata};
 use serde_json::json;

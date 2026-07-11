@@ -340,6 +340,7 @@ impl PageMetadata {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Serialized pagination metadata for an infinite-scroll prop.
 pub struct ScrollProps {
     page_name: String,
     previous_page: Option<u64>,

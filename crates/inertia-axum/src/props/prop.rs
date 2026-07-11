@@ -58,7 +58,10 @@ pub enum LoadPolicy {
     /// Included only when explicitly requested.
     Optional,
     /// Deferred into the named follow-up group.
-    Deferred { group: Cow<'static, str> },
+    Deferred {
+        /// Follow-up request group advertised to the client.
+        group: Cow<'static, str>,
+    },
 }
 
 /// Client-side once-prop caching policy.
@@ -74,16 +77,23 @@ pub struct OncePolicy {
 pub enum MergePolicy {
     /// Append at an optional nested path.
     Append {
+        /// Optional nested merge path.
         path: Option<Cow<'static, str>>,
+        /// Optional identity field for matching existing values.
         match_on: Option<Cow<'static, str>>,
     },
     /// Prepend at an optional nested path.
     Prepend {
+        /// Optional nested merge path.
         path: Option<Cow<'static, str>>,
+        /// Optional identity field for matching existing values.
         match_on: Option<Cow<'static, str>>,
     },
     /// Deep merge with one or more matching paths.
-    Deep { match_on: Vec<Cow<'static, str>> },
+    Deep {
+        /// Identity paths used while recursively merging values.
+        match_on: Vec<Cow<'static, str>>,
+    },
     /// Infinite-scroll merge and pagination metadata.
     Scroll(ScrollPolicy),
 }
@@ -359,7 +369,9 @@ impl<T> ScrollPage<T> {
 
 /// Converts application pagination into a normalized scroll page.
 pub trait IntoScrollPage {
+    /// Item serialized in the normalized page data array.
     type Item: Serialize + Send + 'static;
+    /// Converts application pagination to the normalized wire model.
     fn into_scroll_page(self) -> ScrollPage<Self::Item>;
 }
 impl<T: Serialize + Send + 'static> IntoScrollPage for ScrollPage<T> {

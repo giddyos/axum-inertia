@@ -73,12 +73,15 @@ impl TestPage {
         self
     }
 
+    /// Asserts append-merge metadata for a typed prop.
     pub fn assert_appends<T>(&self, key: PropKey<T>) -> &Self {
         self.assert_merge_metadata_contains("mergeProps", key.name())
     }
+    /// Asserts prepend-merge metadata for a typed prop.
     pub fn assert_prepends<T>(&self, key: PropKey<T>) -> &Self {
         self.assert_merge_metadata_contains("prependProps", key.name())
     }
+    /// Asserts deep-merge metadata for a typed prop.
     pub fn assert_deep_merges<T>(&self, key: PropKey<T>) -> &Self {
         self.assert_metadata_contains("deepMergeProps", key.name())
     }
@@ -88,8 +91,44 @@ impl TestPage {
         self.assert_metadata_contains("matchPropsOn", &format!("{}.{}", key.name(), field))
     }
 
+    /// Asserts that a failed prop was rescued and omitted.
     pub fn assert_rescued<T>(&self, key: PropKey<T>) -> &Self {
         self.assert_metadata_contains("rescuedProps", key.name())
+    }
+
+    /// Asserts that a typed prop is advertised in a deferred group.
+    pub fn assert_deferred<T>(&self, group: &str, key: PropKey<T>) -> &Self {
+        let values = self
+            .value
+            .get("deferredProps")
+            .and_then(|groups| groups.get(group))
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("deferred group `{group}` was missing"));
+        assert!(
+            values
+                .iter()
+                .any(|value| value.as_str() == Some(key.name())),
+            "deferred group `{group}` did not contain `{}`",
+            key.name()
+        );
+        self
+    }
+
+    /// Asserts that a typed prop is advertised under a stable once cache key.
+    pub fn assert_once<T>(&self, once_key: &str, key: PropKey<T>) -> &Self {
+        let prop = self
+            .value
+            .get("onceProps")
+            .and_then(|props| props.get(once_key))
+            .and_then(|value| value.get("prop"))
+            .and_then(Value::as_str);
+        assert_eq!(
+            prop,
+            Some(key.name()),
+            "once key `{once_key}` did not describe `{}`",
+            key.name()
+        );
+        self
     }
 
     /// Asserts that reset suppressed every merge and scroll directive for a prop.
@@ -132,6 +171,7 @@ impl TestPage {
         self
     }
 
+    /// Asserts that the page requests encrypted browser history.
     pub fn assert_encrypts_history(&self) -> &Self {
         assert_eq!(self.value.get("encryptHistory"), Some(&Value::Bool(true)));
         self

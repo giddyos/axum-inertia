@@ -16,6 +16,7 @@ type SharedPropProvider = Arc<
 >;
 
 #[derive(Clone, Default)]
+/// Compatibility registry for route-local shared prop providers.
 pub struct SharedProps {
     providers: Arc<Vec<(Box<str>, SharedPropProvider)>>,
 }

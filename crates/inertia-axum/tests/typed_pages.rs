@@ -1,3 +1,5 @@
+//! Typed direct-response page integration coverage.
+
 #![cfg(feature = "macros")]
 
 use axum::{

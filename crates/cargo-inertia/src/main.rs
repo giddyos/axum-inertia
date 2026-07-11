@@ -1,3 +1,5 @@
+//! Optional `cargo inertia` project commands.
+
 mod check;
 mod dev;
 mod init;

@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
-description = "Inertia.js adapter for Axum"
+description = "An Inertia.js server adapter for Axum"
 keywords = ["inertia", "web", "framework", "axum"]
 categories = ["web-programming"]
 readme = "../../README.md"
@@ -26,16 +26,18 @@ serde_urlencoded = "0.7"
 tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
-sha2 = "0.10"
-tower-http = { version = "0.6", features = ["fs"] }
+sha2 = { version = "0.10", optional = true }
+tower-http = { version = "0.6", features = ["fs"], optional = true }
+base64 = { version = "0.22", optional = true }
 inertia-axum-macros = { workspace = true, optional = true }
 cookie = { version = "0.18", features = ["secure"], optional = true }
 tower-sessions = { version = "0.14", optional = true }
 
 [features]
-default = ["macros"]
+default = ["macros", "vite"]
 macros = ["dep:inertia-axum-macros"]
-cookies = ["dep:cookie"]
+vite = ["dep:sha2", "dep:tower-http"]
+cookies = ["dep:base64", "dep:cookie"]
 tower-sessions = ["dep:tower-sessions"]
 garde = []
 validator = []
@@ -68,6 +70,7 @@ harness = false
 [[bench]]
 name = "vite_initial_html"
 harness = false
+required-features = ["vite"]
 [[bench]]
 name = "partial_async_prop_selection"
 harness = false

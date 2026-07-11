@@ -152,6 +152,13 @@ mod tests {
             .assert_missing(AnomalyShowPage::TELEMETRY)
             .assert_missing(AnomalyShowPage::AFFECTED_INSTRUMENTS)
             .assert_missing(AnomalyShowPage::RAW_FRAMES)
+            .assert_deferred("science", AnomalyShowPage::TELEMETRY)
+            .assert_deferred("science", AnomalyShowPage::AFFECTED_INSTRUMENTS)
+            .assert_once(
+                "calibration-profiles:v3",
+                AnomalyShowPage::CALIBRATION_PROFILES,
+            )
+            .assert_appends(AnomalyShowPage::TIMELINE)
             .assert_deep_merges(AnomalyShowPage::COLLABORATORS)
             .assert_matches_on(AnomalyShowPage::COLLABORATORS, "id");
         assert_eq!(raw.load(Ordering::SeqCst), 0);
@@ -218,6 +225,7 @@ mod tests {
             .assert_see_other("/anomalies/1");
         let page = response.follow().await.assert_page::<AnomalyShowPage>();
         page.assert_error("createAnomaly.title");
+        assert_eq!(page.value()["props"]["oldInput"]["title"], "");
         assert!(!page.value().to_string().contains("secret"));
     }
 }

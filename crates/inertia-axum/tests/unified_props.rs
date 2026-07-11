@@ -1,3 +1,5 @@
+//! Unified asynchronous prop-engine integration coverage.
+
 use axum::{
     Router,
     body::{Body, to_bytes},

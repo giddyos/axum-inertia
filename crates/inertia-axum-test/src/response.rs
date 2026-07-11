@@ -15,21 +15,26 @@ pub struct TestResponse<'a> {
 }
 
 impl<'a> TestResponse<'a> {
+    /// Returns the HTTP status.
     pub fn status(&self) -> StatusCode {
         self.status
     }
+    /// Returns the response headers.
     pub fn headers(&self) -> &HeaderMap {
         &self.headers
     }
+    /// Returns the buffered response body.
     pub fn body(&self) -> &[u8] {
         &self.body
     }
 
+    /// Asserts a `200 OK` response.
     pub fn assert_ok(self) -> Self {
         assert_eq!(self.status, StatusCode::OK);
         self
     }
 
+    /// Asserts an HTML content type.
     pub fn assert_html(self) -> Self {
         let content_type = self
             .headers
@@ -70,12 +75,14 @@ impl<'a> TestResponse<'a> {
         TestPage::new(page)
     }
 
+    /// Asserts a `303 See Other` redirect to `expected`.
     pub fn assert_see_other(self, expected: &str) -> Self {
         assert_eq!(self.status, StatusCode::SEE_OTHER);
         assert_eq!(self.location(), Some(expected));
         self
     }
 
+    /// Asserts an Inertia external-location or version conflict.
     pub fn assert_location_conflict(self, expected: &str) -> Self {
         assert_eq!(self.status, StatusCode::CONFLICT);
         assert_eq!(self.header(X_INERTIA_LOCATION), Some(expected));
