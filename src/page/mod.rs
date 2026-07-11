@@ -9,3 +9,6 @@ pub use builder::{Inertia, InertiaPageBuilder};
 pub(crate) use draft::PageDraft;
 pub use metadata::{OnceProp, PageMetadata, ScrollProps};
 pub use model::Page;
+
+#[cfg(test)]
+mod tests;

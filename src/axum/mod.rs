@@ -12,3 +12,6 @@ pub use render::{
     InertiaError, InertiaRequest, InertiaVersion, SharedProps, SharedRequest, VersionLayer,
     VersionService,
 };
+
+#[cfg(test)]
+mod tests;
