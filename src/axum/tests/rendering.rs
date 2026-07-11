@@ -1,5 +1,3 @@
-//! Axum response, fixture, shared-prop, redirect, and version assertions.
-
 //! Axum integration test fixtures and response behavior tests.
 
 use crate::axum::response_headers::request_context;
