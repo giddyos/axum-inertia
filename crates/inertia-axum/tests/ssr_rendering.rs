@@ -17,19 +17,23 @@ use tower::ServiceExt as _;
 
 async fn fake(render_status: StatusCode, render_body: &'static str) -> (String, Arc<AtomicUsize>) {
     let calls = Arc::new(AtomicUsize::new(0));
-    let count = calls.clone();
+    let render_count = calls.clone();
+    let vite_count = calls.clone();
     let app = Router::new()
         .route("/health", get(|| async { StatusCode::OK }))
         .route(
             "/render",
             post(move || {
-                count.fetch_add(1, Ordering::SeqCst);
+                render_count.fetch_add(1, Ordering::SeqCst);
                 async move { (render_status, render_body) }
             }),
         )
         .route(
             "/__inertia_ssr",
-            post(move || async move { (render_status, render_body) }),
+            post(move || {
+                vite_count.fetch_add(1, Ordering::SeqCst);
+                async move { (render_status, render_body) }
+            }),
         );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -240,9 +244,20 @@ async fn ssr_head_body_and_status_are_preserved_without_double_wrap() {
 }
 
 #[tokio::test]
-async fn vite_warmup_null_falls_back_to_csr() {
-    let (base, _) = fake(StatusCode::OK, "null").await;
-    let inertia = InertiaApp::vite("missing-production-build")
+async fn vite_development_ssr_needs_no_production_manifest_or_bundle() {
+    let (base, calls) = fake(StatusCode::OK, "null").await;
+    let missing_root = "target/definitely-missing-vite-production-output";
+    assert!(
+        !std::path::Path::new(missing_root)
+            .join("dist/.vite/manifest.json")
+            .exists()
+    );
+    assert!(
+        !std::path::Path::new(missing_root)
+            .join("missing-bundle.js")
+            .exists()
+    );
+    let inertia = InertiaApp::vite(missing_root)
         .dev_server(&base)
         .ssr("missing-bundle.js")
         .start()
@@ -258,6 +273,9 @@ async fn vite_warmup_null_falls_back_to_csr() {
     )
     .await;
     assert!(html.contains("<div id=\"app\"></div>"));
+    assert!(html.contains(&format!("{base}/@vite/client")));
+    assert!(html.contains(&format!("{base}/src/main.ts")));
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
