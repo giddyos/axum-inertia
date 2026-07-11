@@ -1,4 +1,4 @@
-#![cfg(all(feature = "ssr", feature = "live-ssr"))]
+#![cfg(feature = "ssr")]
 #![allow(missing_docs)]
 
 use axum::{
@@ -11,9 +11,36 @@ use inertia_axum::{DynamicPage, InertiaApp, RouterInertiaExt as _, Ssr};
 use std::time::Duration;
 use tower::ServiceExt as _;
 
+async fn require_node_22() {
+    let output = tokio::process::Command::new("node")
+        .arg("--version")
+        .output()
+        .await
+        .expect("live SSR tests require Node 22 or newer on PATH");
+    assert!(
+        output.status.success(),
+        "`node --version` failed with {}",
+        output.status
+    );
+    let version = String::from_utf8_lossy(&output.stdout);
+    let major = version
+        .trim()
+        .trim_start_matches('v')
+        .split('.')
+        .next()
+        .and_then(|value| value.parse::<u64>().ok())
+        .expect("Node returned an invalid version");
+    assert!(
+        major >= 22,
+        "live SSR tests require Node 22 or newer; found {}",
+        version.trim()
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires Node 22 or newer"]
 async fn managed_node_launches_relative_bundle_from_relative_vite_root() {
+    require_node_22().await;
     let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = reservation.local_addr().unwrap().port();
     drop(reservation);
@@ -81,6 +108,7 @@ server.listen({port}, '127.0.0.1');
 #[tokio::test]
 #[ignore = "requires Node 22 or newer"]
 async fn managed_node_exit_during_startup_fails_immediately() {
+    require_node_22().await;
     let root = std::env::current_dir()
         .unwrap()
         .join("target/ssr-fixtures")
@@ -108,6 +136,7 @@ async fn managed_node_exit_during_startup_fails_immediately() {
 #[tokio::test]
 #[ignore = "requires Node 22 or newer"]
 async fn hanging_shutdown_route_reaches_force_kill() {
+    require_node_22().await;
     let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = reservation.local_addr().unwrap().port();
     drop(reservation);
@@ -155,6 +184,7 @@ res.statusCode=404;res.end();}});server.listen({port},'127.0.0.1');"#
 #[tokio::test]
 #[ignore = "requires Node 22 or newer"]
 async fn supervisor_restart_health_checks_remain_bounded() {
+    require_node_22().await;
     use inertia_axum::{SsrBackendKind, SsrHealth};
     let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = reservation.local_addr().unwrap().port();
@@ -210,23 +240,9 @@ server.listen({port},'127.0.0.1',()=>{{if(count===1)setTimeout(()=>process.exit(
 }
 
 #[tokio::test]
+#[ignore = "requires Node 22 or newer"]
 async fn managed_node_starts_renders_and_shuts_down() {
-    let version = tokio::process::Command::new("node")
-        .arg("--version")
-        .output()
-        .await;
-    let Ok(version) = version else { return };
-    let major = String::from_utf8_lossy(&version.stdout)
-        .trim()
-        .trim_start_matches('v')
-        .split('.')
-        .next()
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
-    if major < 22 {
-        return;
-    }
+    require_node_22().await;
 
     let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = reservation.local_addr().unwrap().port();
@@ -301,27 +317,10 @@ server.listen({port}, '127.0.0.1');
 }
 
 #[tokio::test]
+#[ignore = "requires Node 22 or newer"]
 async fn supervisor_restarts_managed_process_once_and_restores_health() {
     use inertia_axum::{SsrBackendKind, SsrHealth};
-    let Ok(version) = tokio::process::Command::new("node")
-        .arg("--version")
-        .output()
-        .await
-    else {
-        return;
-    };
-    if String::from_utf8_lossy(&version.stdout)
-        .trim()
-        .trim_start_matches('v')
-        .split('.')
-        .next()
-        .unwrap()
-        .parse::<u64>()
-        .unwrap()
-        < 22
-    {
-        return;
-    }
+    require_node_22().await;
     let reservation = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = reservation.local_addr().unwrap().port();
     drop(reservation);
@@ -370,37 +369,4 @@ const server = http.createServer((req,res) => {{
     drop(inertia);
     tokio::time::sleep(Duration::from_millis(100)).await;
     let _ = std::fs::remove_dir_all(root);
-}
-
-#[tokio::test]
-async fn official_vite_plugin_bundle_starts_and_renders() {
-    let bundle = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/axum-svelte/svelte-app/dist/ssr/app.js");
-    assert!(bundle.is_file());
-    let inertia = InertiaApp::default_root()
-        .ssr(Ssr::node(&bundle))
-        .start()
-        .await
-        .unwrap();
-    let app = Router::new()
-        .route(
-            "/todos",
-            get(|| async {
-                DynamicPage::new("Todos/Index").prop("todos", Vec::<serde_json::Value>::new())
-            }),
-        )
-        .inertia(inertia);
-    let response = app
-        .oneshot(Request::get("/todos").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
-    let html = String::from_utf8(
-        to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap()
-            .to_vec(),
-    )
-    .unwrap();
-    assert!(html.contains("data-server-rendered=\"true\""));
-    assert!(html.contains("<h1>Todos</h1>"));
 }

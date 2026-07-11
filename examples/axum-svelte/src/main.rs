@@ -93,17 +93,21 @@ fn app(state: AppState, inertia: InertiaApp) -> Router {
         .inertia(inertia)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn production_inertia() -> Result<InertiaApp, inertia_axum::StartError> {
     let frontend = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("svelte-app");
-    let inertia = InertiaApp::vite(frontend)
+    InertiaApp::vite(frontend)
         .entry("src/app.js")
         .build_dir("../public/build")
         .public_path("/public/build")
         .ssr("dist/ssr/app.js")
         .transient(MemoryTransient::new())
         .start()
-        .await?;
+        .await
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let inertia = production_inertia().await?;
     let state = AppState {
         todos: Arc::new(RwLock::new(vec![Todo {
             id: 1,

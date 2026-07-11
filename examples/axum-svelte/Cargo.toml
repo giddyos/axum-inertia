@@ -9,3 +9,6 @@ axum = { workspace = true, features = ["http1", "tokio"] }
 inertia-axum = { workspace = true, features = ["ssr"] }
 serde.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "sync"] }
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
