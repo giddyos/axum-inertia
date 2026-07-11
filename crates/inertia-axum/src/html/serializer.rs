@@ -31,12 +31,13 @@ impl Formatter for ScriptSafeFormatter {
     }
 }
 
-pub(crate) fn to_script_safe_json<T>(value: &T) -> Result<String, serde_json::Error>
+pub(crate) fn to_script_safe_json<T>(value: &T) -> Result<Bytes, serde_json::Error>
 where
     T: Serialize + ?Sized,
 {
-    let mut bytes = Vec::with_capacity(1024);
-    let mut serializer = Serializer::with_formatter(&mut bytes, ScriptSafeFormatter);
+    let mut output = Vec::with_capacity(1024);
+    let mut serializer = Serializer::with_formatter(&mut output, ScriptSafeFormatter);
     value.serialize(&mut serializer)?;
-    Ok(String::from_utf8(bytes).expect("serde_json serializers always emit valid UTF-8"))
+    Ok(Bytes::from(output))
 }
+use bytes::Bytes;

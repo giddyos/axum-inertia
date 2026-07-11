@@ -47,7 +47,7 @@ pub use props::{
 pub use redirect::{Location, Redirect};
 pub use request::RequestContext;
 pub use response::{DynamicPage, PendingPage, PendingResponse, PendingResponseHandle};
-pub use root::{AssetTags, MountMarkup, RootContext, RootView};
+pub use root::{AssetTags, HeadMarkup, MountMarkup, RootContext, RootView};
 pub use share::{Share, ShareContext};
 #[cfg(feature = "ssr")]
 pub use ssr::{Ssr, SsrContext, SsrOverride, SsrRouteExt};

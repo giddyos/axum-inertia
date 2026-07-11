@@ -8,7 +8,7 @@ use crate::{
     },
     html::html_response_context,
     response::{PendingPage, PendingResponse},
-    root::{MountMarkup, RootContext},
+    root::{HeadMarkup, MountMarkup, RootContext},
     visit::Visit,
 };
 use crate::{
@@ -272,12 +272,13 @@ impl Engine {
         let page = PageDraft::new(page, route_roots).finish();
         finalize_page_object(page, visit.is_inertia(), status, |serialized| {
             let assets = self.app.inner.assets.tags.clone();
-            let mount = MountMarkup::new(serialized.data_page());
+            let head = HeadMarkup::empty();
+            let mount = MountMarkup::csr(serialized.data_page());
             let html = self
                 .app
                 .inner
                 .root
-                .render(RootContext::new(&assets, &mount))
+                .render(RootContext::new(&assets, &head, &mount))
                 .map_err(crate::axum::InertiaError::root)?;
             Ok(Html(html).into_response())
         })
