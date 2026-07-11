@@ -108,6 +108,14 @@ jobs:
       - name: Check without default features
         run: cargo check --locked --workspace --all-targets --no-default-features
 
+      - name: Check encrypted cookies without default features
+        run: >-
+          cargo check
+          --locked
+          -p inertia-axum
+          --no-default-features
+          --features cookies
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest

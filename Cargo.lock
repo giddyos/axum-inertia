@@ -1170,7 +1170,6 @@ version = "1.0.0-alpha.1"
 dependencies = [
  "askama",
  "axum",
- "base64",
  "bytes",
  "cookie",
  "criterion",
