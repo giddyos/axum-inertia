@@ -1665,10 +1665,7 @@ function Index($$renderer, $$props) {
 var pages = /* #__PURE__ */ Object.assign({ "./Pages/Todos/Index.svelte": Index_exports });
 var ssr = await createInertiaApp({ resolve: (name) => pages[`./Pages/${name}.svelte`] });
 var renderPage = (page) => ssr(page, render);
-server_default(renderPage, {
-	"port": 13714,
-	"host": "127.0.0.1"
-});
+server_default(renderPage);
 //#endregion
 export { renderPage as default };
 
