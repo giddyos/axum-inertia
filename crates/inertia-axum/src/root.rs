@@ -188,16 +188,30 @@ impl<T: RootView> ErasedRootView for T {
 #[derive(Clone, Default)]
 pub(crate) struct DefaultRoot;
 
+const DEFAULT_ROOT_PREFIX: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+const DEFAULT_ROOT_BODY: &str = "</head><body>";
+const DEFAULT_ROOT_SUFFIX: &str = "</body></html>";
+
 impl RootView for DefaultRoot {
     type Error = Infallible;
 
     fn render(&self, context: RootContext<'_>) -> Result<String, Self::Error> {
-        Ok(format!(
-            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">{}{}</head><body>{}</body></html>",
-            context.assets(),
-            context.head(),
-            context.mount()
-        ))
+        let capacity = DEFAULT_ROOT_PREFIX.len()
+            + context.assets().as_str().len()
+            + context.head().as_str().len()
+            + DEFAULT_ROOT_BODY.len()
+            + context.mount().as_str().len()
+            + DEFAULT_ROOT_SUFFIX.len();
+        let mut output = String::with_capacity(capacity);
+
+        output.push_str(DEFAULT_ROOT_PREFIX);
+        output.push_str(context.assets().as_str());
+        output.push_str(context.head().as_str());
+        output.push_str(DEFAULT_ROOT_BODY);
+        output.push_str(context.mount().as_str());
+        output.push_str(DEFAULT_ROOT_SUFFIX);
+
+        Ok(output)
     }
 }
 
@@ -244,5 +258,20 @@ mod tests {
         let html =
             RootView::render(&DefaultRoot, RootContext::new(&assets, &head, &mount)).unwrap();
         assert!(html.contains("initial-scale=1\"></head>"));
+    }
+
+    #[test]
+    fn default_root_output_is_byte_compatible() {
+        let assets = AssetTags::new("<script src=\"/app.js\"></script>".to_owned());
+        let head = HeadMarkup::for_test("<title>SSR</title>");
+        let mount = MountMarkup::for_test("<div id=\"app\">rendered</div>");
+        let html =
+            RootView::render(&DefaultRoot, RootContext::new(&assets, &head, &mount)).unwrap();
+
+        assert_eq!(
+            html,
+            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><script src=\"/app.js\"></script><title>SSR</title></head><body><div id=\"app\">rendered</div></body></html>"
+        );
+        assert_eq!(html.capacity(), html.len());
     }
 }
