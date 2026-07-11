@@ -1,91 +1,200 @@
-on: [push, pull_request]
+name: CI
+
+on:
+  push:
+  pull_request:
 
 permissions:
   contents: read
 
-name: CI
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TARGET_DIR: ${{ github.workspace }}/target
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  INSTA_UPDATE: "no"
 
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - run: cargo fmt --all -- --check
-      - run: cargo test --workspace
-      - run: cargo test --workspace --all-features
-      - run: cargo check --workspace --all-targets --all-features
-      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-      - name: Test
-        env:
-          INSTA_UPDATE: "no"
+
+      - name: Cache Cargo dependencies and build artifacts
+        uses: Swatinem/rust-cache@v2.9.1
+        with:
+          shared-key: stable
+          workspaces: ". -> target"
+          cache-on-failure: true
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Test default features and all targets
         run: cargo test --locked --workspace --all-targets
+
+      - name: Test all features
+        run: cargo test --locked --workspace --all-features
+
       - name: Reject uncommitted snapshots
+        shell: bash
         run: |
-          if find . -name '*.snap.new' -print -quit | grep -q .; then
+          snapshots="$(find . \
+            -path './target' -prune -o \
+            -name '*.snap.new' -print)"
+
+          if [[ -n "$snapshots" ]]; then
             echo "Pending Insta snapshots were generated:"
-            find . -name '*.snap.new' -print
+            printf '%s\n' "$snapshots"
             exit 1
           fi
-      - run: cargo test --workspace --doc
-      - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
-      - run: cargo package -p inertia-axum-macros
+
+      - name: Check all targets and features
+        run: cargo check --locked --workspace --all-targets --all-features
+
+      - name: Clippy
+        run: >-
+          cargo clippy
+          --locked
+          --workspace
+          --all-targets
+          --all-features
+          --
+          -D warnings
+
+      - name: Test documentation
+        run: cargo test --locked --workspace --doc
+
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --locked --workspace --no-deps
+
+      - name: Package macros
+        run: cargo package --locked -p inertia-axum-macros
+
       - name: Package runtime against the unpublished workspace macro
-        run: cargo --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum
+        run: >-
+          cargo
+          --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"'
+          package
+          --locked
+          -p inertia-axum
+
       - name: Package test crate against unpublished workspace packages
-        run: cargo --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"' --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"' package -p inertia-axum-test
-      - run: cargo package -p cargo-inertia
-      - run: cargo bench --workspace --no-run
-      - run: cargo check --workspace --all-targets --no-default-features
+        run: >-
+          cargo
+          --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"'
+          --config 'patch.crates-io.inertia-axum-macros.path="crates/inertia-axum-macros"'
+          package
+          --locked
+          -p inertia-axum-test
+
+      - name: Package Cargo plugin
+        run: cargo package --locked -p cargo-inertia
+
+      - name: Compile benchmarks
+        run: cargo bench --locked --workspace --no-run
+
+      - name: Check without default features
+        run: cargo check --locked --workspace --all-targets --no-default-features
 
   msrv:
     name: MSRV
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+
       - uses: dtolnay/rust-toolchain@1.88.0
-      - run: cargo check --workspace --all-targets
+
+      - name: Cache MSRV Cargo dependencies and build artifacts
+        uses: Swatinem/rust-cache@v2.9.1
+        with:
+          shared-key: msrv-1.88
+          workspaces: ". -> target"
+          cache-on-failure: true
+
+      - run: cargo check --locked --workspace --all-targets
 
   example:
     name: Frontend example
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: |
-            examples/axum-svelte/svelte-app/pnpm-lock.yaml
-      - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
-        working-directory: examples/axum-svelte/svelte-app
-      - run: pnpm test
-        working-directory: examples/axum-svelte/svelte-app
-      - run: cargo test --workspace
 
-  live-ssr:
-    name: Live SSR
-    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/axum-svelte/svelte-app
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         with:
           version: 11.9.0
-      - uses: actions/setup-node@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: examples/axum-svelte/svelte-app/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Test frontend
+        run: pnpm test
+
+  live-ssr:
+    name: Live SSR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 11.9.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: examples/axum-svelte/svelte-app/pnpm-lock.yaml
+
       - uses: dtolnay/rust-toolchain@stable
-      - run: pnpm install --frozen-lockfile
+
+      - name: Restore stable Cargo cache
+        uses: Swatinem/rust-cache@v2.9.1
+        with:
+          shared-key: stable
+          workspaces: ". -> target"
+          save-if: false
+
+      - name: Install frontend dependencies
         working-directory: examples/axum-svelte/svelte-app
-      - run: pnpm build
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build frontend
         working-directory: examples/axum-svelte/svelte-app
-      - run: cargo test -p inertia-axum --features ssr,live-ssr --test ssr_managed_node
+        run: pnpm build
+
+      - name: Test live SSR
+        run: >-
+          cargo test
+          --locked
+          -p inertia-axum
+          --features ssr,live-ssr
+          --test ssr_managed_node
