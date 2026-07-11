@@ -3,4 +3,6 @@
 **/*.snap.new
 examples/axum-svelte/svelte-app/node_modules/
 examples/axum-svelte/svelte-app/dist/
+examples/axum-svelte/svelte-app/playwright-report/
+examples/axum-svelte/svelte-app/test-results/
 examples/axum-svelte/public/build/

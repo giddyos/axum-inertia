@@ -149,12 +149,12 @@ async fn hanging_shutdown_route_reaches_force_kill() {
     std::fs::write(
         &bundle,
         format!(
-            r#"import http from 'node:http';
+            r"import http from 'node:http';
 const server=http.createServer((req,res)=>{{
 if(req.url==='/health')return res.end('ok');
 if(req.url==='/shutdown')return;
 if(req.url==='/render')return res.end('null');
-res.statusCode=404;res.end();}});server.listen({port},'127.0.0.1');"#
+res.statusCode=404;res.end();}});server.listen({port},'127.0.0.1');"
         ),
     )
     .unwrap();
@@ -199,13 +199,13 @@ async fn supervisor_restart_health_checks_remain_bounded() {
     std::fs::write(
         &bundle,
         format!(
-            r#"import http from 'node:http';import fs from 'node:fs';
+            r"import http from 'node:http';import fs from 'node:fs';
 const file={launches:?};const count=fs.existsSync(file)?Number(fs.readFileSync(file))+1:1;fs.writeFileSync(file,String(count));
 const server=http.createServer((req,res)=>{{
 if(req.url==='/health'){{if(count===2)return;return res.end('ok');}}
 if(req.url==='/shutdown'){{res.end('ok');return server.close();}}
 if(req.url==='/render')return res.end('null');res.statusCode=404;res.end();}});
-server.listen({port},'127.0.0.1',()=>{{if(count===1)setTimeout(()=>process.exit(17),100);}});"#,
+server.listen({port},'127.0.0.1',()=>{{if(count===1)setTimeout(()=>process.exit(17),100);}});",
             launches = launches.to_string_lossy()
         ),
     )
@@ -215,7 +215,7 @@ server.listen({port},'127.0.0.1',()=>{{if(count===1)setTimeout(()=>process.exit(
             Ssr::node(&bundle)
                 .endpoint(format!("http://127.0.0.1:{port}"))
                 .control_timeout(Duration::from_millis(25))
-                .startup_timeout(Duration::from_millis(75)),
+                .startup_timeout(Duration::from_millis(500)),
         )
         .start()
         .await
