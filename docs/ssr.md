@@ -6,7 +6,7 @@ Enable the `ssr` feature, configure a bundle, and use asynchronous startup:
 
 ```rust
 let inertia = InertiaApp::vite("frontend")
-    .ssr("dist/ssr/ssr.js")
+    .ssr("dist/ssr/app.js")
     .start()
     .await?;
 ```
@@ -17,11 +17,35 @@ Once configured, every initial non-Inertia `GET` page is rendered by SSR unless 
 
 ## Frontend Vite configuration
 
-Install `@inertiajs/vite`, configure its `ssr.entry`, and make the production build run both `vite build` and `vite build --ssr`. See `examples/axum-svelte/svelte-app` for a complete Svelte setup.
+Install `@inertiajs/vite` and make the production build run both `vite build` and `vite build --ssr`. The plugin auto-detects `src/app.js`, `src/app.ts`, and conventional dedicated SSR entries. Setting `ssr.entry` is optional; use it only when auto-detection is unsuitable. The Svelte example intentionally uses one universal `src/app.js` entry.
+
+## Client build versus SSR build
+
+A production Inertia application normally has two outputs:
+
+1. The client build, including `.vite/manifest.json`, browser JavaScript,
+   stylesheets, and imported chunks.
+2. The SSR bundle executed by Node.
+
+The SSR protocol does not consume the Vite client manifest. However,
+`InertiaApp::vite(...)` requires it in production so inertia-axum can inject
+and serve the browser assets. Vite development mode does not require either
+production output.
+
+| Configuration | Client manifest | SSR bundle |
+| --- | ---: | ---: |
+| Vite production + managed Node | Required | Required |
+| Vite production + external SSR | Required | Only required locally when `.bundle(...)` validation is enabled |
+| Vite development server | Not required | Not required |
+| Custom `AssetProvider` + managed Node | Not required | Required |
+| `default_root()` + managed Node | Not required | Required |
+| `default_root()` + external SSR | Not required | Not required locally |
 
 ## Managed Node mode
 
 `Ssr::node(path)`, including the `.ssr(path)` shorthand, validates Node 22+, validates the bundle, starts one long-lived child without a shell, drains its output, supervises it, and shuts it down when the last application handle is dropped.
+
+Managed SSR should bind to a loopback address unless external access is intentionally required.
 
 ## External Node mode
 
@@ -57,7 +81,9 @@ Set `VITE_DEV_SERVER_URL=http://127.0.0.1:5173`. SSR automatically uses `/__iner
 
 ## Production build output
 
-The managed bundle path is resolved relative to the Vite root. Absolute paths are preserved. Ensure the SSR build emits `dist/ssr/ssr.js` or configure the emitted path explicitly.
+The managed bundle path is resolved relative to the absolute Vite root. Absolute paths are preserved, and Node always receives an absolute bundle path. With the auto-detected `src/app.js` entry, the example emits `dist/ssr/app.js`; projects with another explicit input or output name must configure the corresponding path.
+
+`Ssr::node(...).endpoint(...)` changes the URL used by Rust. It does not rewrite the port compiled into the official Inertia SSR bundle. When using a custom port, configure the same port in `inertia({ ssr: { port } })`.
 
 ## Graceful fallback
 
@@ -86,6 +112,8 @@ Check Node is at least version 22, the resolved bundle is a file, the endpoint i
 ## Testing
 
 `inertia-axum-test::TestSsr` provides Node-free `/health`, `/render`, and `/shutdown` behavior, recorded calls, and `assert_ssr`, `assert_csr`, and head assertions. Keep real Node lifecycle coverage in a dedicated integration job.
+
+A core SSR test using `default_root()` can render successfully without browser assets because it exercises the Inertia SSR protocol, not production Vite asset injection. Use `./scripts/test-live-ssr.sh` to clean-build and verify the client manifest, official SSR bundle, real example application, and static assets together.
 
 ## Performance and capacity guidance
 

@@ -10,7 +10,8 @@
 ## Important files
 
 ```text
-src/main.rs                              State, typed page, handlers, and server
+src/lib.rs                               State, typed page, handlers, and shared app builder
+src/main.rs                              Production server startup
 svelte-app/src/Pages/Todos/Index.svelte  Deferred data and validation UI
 svelte-app/src/app.js                    Inertia client and plugin-generated SSR entry
 ```
@@ -27,12 +28,25 @@ svelte-app/src/app.js                    Inertia client and plugin-generated SSR
 From the repository root:
 
 ```sh
-npm ci --prefix examples/axum-svelte/svelte-app
-npm run build --prefix examples/axum-svelte/svelte-app
+pnpm --dir examples/axum-svelte/svelte-app install --frozen-lockfile
+pnpm --dir examples/axum-svelte/svelte-app build
 cargo run -p axum-svelte
 ```
 
 Open <http://127.0.0.1:3002/todos>.
+
+The frontend build produces:
+
+- `examples/axum-svelte/public/build/.vite/manifest.json`
+- `examples/axum-svelte/svelte-app/dist/ssr/app.js`
+
+Both are required for this production example. During Vite development,
+neither production artifact is required. To clean-build and verify the Node
+lifecycle plus the complete production example, run:
+
+```sh
+./scripts/test-live-ssr.sh
+```
 
 ## Expected behavior
 

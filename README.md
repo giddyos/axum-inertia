@@ -264,7 +264,7 @@ Enable the `ssr` feature, configure the production bundle, and use async startup
 
 ```rust,ignore
 let inertia = InertiaApp::vite("frontend")
-    .ssr("dist/ssr/ssr.js")
+    .ssr("dist/ssr/app.js")
     .start()
     .await?;
 
@@ -279,6 +279,10 @@ Router::new()
 
 See the [SSR guide](docs/ssr.md) for Vite, managed and external Node modes, opt-in policy, health, operations, testing, and capacity guidance.
 
+In production, run both the client and SSR Vite builds before starting the
+Rust application. The client manifest and SSR bundle are separate required
+outputs when using `InertiaApp::vite(...)`.
+
 ## Examples
 
 ### Browser applications
@@ -286,7 +290,7 @@ See the [SSR guide](docs/ssr.md) for Vite, managed and external Node modes, opt-
 | Example | Demonstrates | Run |
 | --- | --- | --- |
 | [`axum-minimal`](examples/axum-minimal) | smallest router, `page!`, initial HTML, and Inertia JSON | `cargo run -p axum-minimal` |
-| [`axum-svelte`](examples/axum-svelte) | Vite, Svelte 5, deferred loading, and validation UI | `cargo run -p axum-svelte` |
+| [`axum-svelte`](examples/axum-svelte) | Vite, Svelte 5, production SSR, deferred loading, and validation UI | Build the frontend, then `cargo run -p axum-svelte` ([instructions](examples/axum-svelte/README.md)) |
 
 ### Tested application patterns
 
