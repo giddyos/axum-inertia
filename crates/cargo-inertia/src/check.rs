@@ -6,6 +6,7 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
+use syn::{Attribute, Expr, LitStr, Token, visit::Visit};
 
 pub fn run(root: &Path, frontend_arg: &Path) -> Result<(), String> {
     let frontend = root.join(frontend_arg);
@@ -97,28 +98,60 @@ fn collect(directory: &Path, extension: &str, output: &mut Vec<PathBuf>) -> Resu
 }
 
 fn literal_components(source: &str) -> Vec<String> {
-    let mut rest = source;
-    let mut found = Vec::new();
-    while let Some(attribute) = rest.find("#[inertia") {
-        rest = &rest[attribute + 2..];
-        let Some(end) = rest.find(']') else { break };
-        let contents = &rest[..end];
-        rest = &rest[end + 1..];
-        let Some(component) = contents.find("component") else {
-            continue;
-        };
-        let value = &contents[component + "component".len()..];
-        let Some(equals) = value.find('=') else {
-            continue;
-        };
-        let value = value[equals + 1..].trim_start();
-        if let Some(value) = value.strip_prefix('"')
-            && let Some(end) = value.find('"')
-        {
-            found.push(value[..end].to_owned());
+    let Ok(file) = syn::parse_file(source) else {
+        return Vec::new();
+    };
+    let mut visitor = ComponentVisitor::default();
+    visitor.visit_file(&file);
+    visitor.components
+}
+
+#[derive(Default)]
+struct ComponentVisitor {
+    components: Vec<String>,
+}
+impl<'ast> Visit<'ast> for ComponentVisitor {
+    fn visit_attribute(&mut self, attribute: &'ast Attribute) {
+        if let Ok(Some(component)) = component_from_attribute(attribute) {
+            self.components.push(component.value());
         }
+        syn::visit::visit_attribute(self, attribute);
     }
-    found
+    fn visit_macro(&mut self, mac: &'ast syn::Macro) {
+        if mac.path.is_ident("page") {
+            if let Ok(literal) = syn::parse2::<LitStr>(mac.tokens.clone()) {
+                self.components.push(literal.value());
+            }
+        }
+        syn::visit::visit_macro(self, mac);
+    }
+    fn visit_expr_method_call(&mut self, call: &'ast syn::ExprMethodCall) {
+        if call.method == "new" && call.args.len() == 1 {
+            if let Some(syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(value),
+                ..
+            })) = call.args.first()
+            {
+                self.components.push(value.value());
+            }
+        }
+        syn::visit::visit_expr_method_call(self, call);
+    }
+}
+fn component_from_attribute(attribute: &Attribute) -> syn::Result<Option<LitStr>> {
+    if !attribute.path().is_ident("inertia") {
+        return Ok(None);
+    }
+    let mut component = None;
+    attribute.parse_nested_meta(|meta| {
+        if meta.path.is_ident("component") {
+            component = Some(meta.value()?.parse()?);
+        } else if meta.input.peek(Token![=]) {
+            let _: Expr = meta.value()?.parse()?;
+        }
+        Ok(())
+    })?;
+    Ok(component)
 }
 
 fn validate_component(value: &str) -> Result<(), String> {
@@ -183,7 +216,7 @@ mod tests {
     fn extracts_multiline_literal_components() {
         assert_eq!(
             literal_components(
-                "#[inertia(\n component = \"Todos/Index\", rename_all = \"camelCase\"\n)]"
+                "#[inertia(\n component = \"Todos/Index\", rename_all = \"camelCase\"\n)] struct Page;"
             ),
             ["Todos/Index"]
         );
