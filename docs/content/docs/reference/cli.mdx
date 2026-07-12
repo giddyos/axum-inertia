@@ -29,9 +29,9 @@ Errors are written to stderr with a `cargo inertia:` prefix and a non-zero exit 
 
 | Framework | Inertia adapter | Page file |
 | --- | --- | --- |
-| Svelte | `@inertiajs/svelte` `^3.0.0` | `src/Pages/Home.svelte` |
-| React | `@inertiajs/react` `^3.0.0` | `src/Pages/Home.tsx` |
-| Vue | `@inertiajs/vue3` `^3.0.0` | `src/Pages/Home.vue` |
+| Svelte | `@inertiajs/svelte` `3.6.1`, Svelte `5.55.7`, Vite `8.1.4` | `src/Pages/Home.svelte` |
+| React | `@inertiajs/react` `3.6.1`, React `19.2.4`, Vite `8.1.4` | `src/Pages/Home.tsx` |
+| Vue | `@inertiajs/vue3` `3.6.1`, Vue `3.5.29`, Vite `8.1.4` | `src/Pages/Home.vue` |
 
 Every scaffold contains:
 
@@ -39,15 +39,34 @@ Every scaffold contains:
 frontend/
 ├── package.json
 ├── vite.config.ts
+├── svelte.config.js  # Svelte only
+├── tsconfig.json     # Svelte only
 └── src/
     ├── main.ts
     └── Pages/
         └── Home.<framework-extension>
 ```
 
-The generated Vite config enables the framework plugin, `build.manifest`, and `src/main.ts` as the Rollup input. `package.json` uses `vite` for `dev` and `build`; framework, Vite, plugin, and TypeScript versions other than the Inertia v3 range are generated as `latest`.
+The generated Vite config enables the framework plugin, `build.manifest`, and
+`src/main.ts` as the Rollup input. Every dependency is pinned to the maintained
+example version. Svelte adds `svelte-preprocess` `6.0.5`, a preprocessing config,
+and `verbatimModuleSyntax` TypeScript settings required to build the adapter.
 
-The command refuses to overwrite an existing `<path>/frontend`. It creates frontend files only; add Rust dependencies, a page handler, and `.inertia(InertiaApp::vite("frontend").build()?)` separately. See the [quick start](/docs/getting-started/quick-start).
+Each generated `Home` imports `Deferred`, renders `greeting` immediately, shows
+`Loading stats…`, and then renders the deferred `projects` and `tasks` values. React
+always uses `.tsx`.
+
+The command refuses to overwrite an existing `<path>/frontend`. After generation it
+prints these next steps:
+
+```text
+pnpm --dir frontend install
+pnpm --dir frontend build
+cargo run
+```
+
+It creates frontend files only; add Rust dependencies and the matching immediate-plus-deferred
+handler from the [quick start](/docs/getting-started/quick-start).
 
 ## `dev`
 

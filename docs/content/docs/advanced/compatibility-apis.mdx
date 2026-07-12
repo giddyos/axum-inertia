@@ -8,11 +8,28 @@ keywords:
   - VersionLayer
 ---
 
-The compatibility APIs preserve the explicit rendering path used by older
-applications during the 1.0 alpha migration. They need no optional Cargo feature,
-but they are not the recommended starting point for new handlers. Prefer direct
-`DynamicPage` or derived `InertiaPage` responses, typed `Share`, and one
-`InertiaApp` layer.
+<Callout type="warn" title="Migration-only APIs">
+  These APIs preserve older explicit rendering during the 1.0 alpha migration.
+  New handlers should return `DynamicPage` or a derived `InertiaPage` through one
+  installed `InertiaApp` layer.
+</Callout>
+
+## Migrate the handler first
+
+```rust title="src/routes/dashboard.rs"
+// Before: compatibility extractor and explicit finalization.
+async fn dashboard(request: InertiaRequest) -> Result<Response, InertiaError> {
+    request.render(Inertia::response("Dashboard", props), shell)
+}
+
+// After: direct response and application-wide root finalization.
+async fn dashboard() -> DynamicPage {
+    page!("Dashboard", { ready: true })
+}
+```
+
+Keep an unmigrated route only while converting it incrementally. The exact retained
+surface follows so existing applications can search for each legacy name.
 
 ## Exact `compat` exports
 

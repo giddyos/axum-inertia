@@ -10,7 +10,7 @@ The 1.0 alpha replaces per-handler rendering orchestration with direct page resp
 Protocol behavior remains compatible, while typed pages, async prop policies, Vite,
 validation, flash, and SSR are integrated through one application layer.
 
-Set `inertia-axum = "1.0.0-alpha.1"`, migrate in the order below, and keep the
+Set `inertia-axum = "=1.0.0-alpha.1"`, migrate in the order below, and keep the
 compatibility APIs only where an incremental conversion needs them.
 
 ## 1. Build one application
@@ -89,7 +89,9 @@ let inertia = InertiaApp::vite("frontend")
 
 #[derive(serde::Deserialize, InertiaForm)]
 #[inertia(validate_with = "validate_todo", error_bag = "createTodo")]
-struct CreateTodo { title: String }
+struct CreateTodo {
+    title: String,
+}
 ```
 
 Old input remains opt-in. Redact tokens and passwords before enabling it. Flash values
@@ -117,7 +119,7 @@ Use `inertia-axum-test` for page, partial, redirect, validation, flash, merge, r
 version, and SSR assertions. Generated page keys make prop selection and prop-policy
 assertions compiler-checked.
 
-```rust title="src/main.rs"
+```rust title="tests/todos.rs"
 let page = TestApp::new(router)
     .inertia_get("/todos")
     .only(TodosPage::STATS)

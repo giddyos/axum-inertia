@@ -11,20 +11,6 @@ Implement `RootView` when another template engine or a custom Rust renderer must
 produce the complete initial HTML document. The renderer receives inertia-axum's
 trusted asset, head, and mount fragments and controls where they appear.
 
-## Prerequisites
-
-`RootView` and `RootContext` require no Cargo feature. The example below keeps the
-default `vite` feature because Vite supplies its asset tags:
-
-```toml title="Cargo.toml"
-[dependencies]
-inertia-axum = "1.0.0-alpha.1"
-```
-
-Use the built-in root or a marker template unless you need another engine or complete
-rendering control. Use the typed `AskamaRoot` integration instead when that engine is
-Askama.
-
 ## Implement a root renderer
 
 This implementation is reduced from the built-in root and custom-root tests. It
@@ -78,6 +64,9 @@ let inertia = InertiaApp::vite("frontend")
 
 `InertiaApp::builder(AppRoot)` starts directly with the same custom renderer when
 Vite is not the asset pipeline.
+
+`RootView` and `RootContext` need no optional feature. Prefer the built-in root or a
+marker template unless another engine or complete rendering control is required.
 
 ## How rendering works
 
@@ -145,7 +134,7 @@ one finalized by `build()` or `start()`.
 - A direct `RootView` implementation is the engine-neutral option and owns all HTML,
   escaping, error-type, and performance decisions.
 
-## Production guidance
+## Operational constraints
 
 Keep `render` free of filesystem access, network calls, and template parsing. It is a
 synchronous method in the async response path. Compile or parse templates during
@@ -157,7 +146,7 @@ and preallocate output when the engine allows it.
 `failed to render Inertia root view: ...`; the response is a generic `500 Internal
 Server Error`, so do not rely on exposing renderer details to the browser.
 
-## Related guides and examples
+## Continue
 
 - [Root documents](/docs/guides/root-documents)
 - [Create a custom root document](/docs/recipes/custom-root-document)

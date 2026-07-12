@@ -13,13 +13,6 @@ Use `Visit` in an Axum handler when work depends on the current Inertia visit. U
 `ShareContext` inside a `Share` provider when application-wide props need borrowed
 request data. `RequestContext` is the lower-level, framework-neutral header model.
 
-## Prerequisites
-
-No Cargo feature is required for these types. The typed `Visit::selects` example
-below uses `#[derive(InertiaPage)]`, which requires the default `macros` feature.
-Install the application with `RouterInertiaExt::inertia` so the provider, handler,
-and finalizer use the same parsed visit.
-
 ## Skip unselected eager work
 
 `Visit::selects` is an escape hatch for ordinary eager data that must be loaded

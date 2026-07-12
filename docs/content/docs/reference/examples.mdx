@@ -31,10 +31,10 @@ These three crates return real pending page responses through a configured Axum 
 
 ## Which example should I copy?
 
-- First Axum/Inertia request: start with `axum-minimal` and [quick start](/docs/getting-started/quick-start).
-- Framework client setup: choose [Svelte](/docs/frontend/svelte), [React](/docs/frontend/react), or [Vue](/docs/frontend/vue), then compare its browser example.
-- Typed handlers and tests: use `todo` with [testing an application](/docs/recipes/testing-an-application).
-- Production SSR: use the matching framework example and the [frontend SSR build](/docs/ssr/frontend-build).
-- Advanced protocol policies: treat `incident-board` and `observatory` as focused fixtures, not starter architectures.
+- **Copy `axum-minimal` for:** the first Axum/Inertia request and smallest production-manifest server.
+- **Copy a framework browser example for:** maintained Svelte, React, or Vue client and hydration setup.
+- **Copy `todo` for:** typed handlers, deferred props, redirect validation, and `TestApp` tests.
+- **Copy the matching framework example for:** production SSR and browser hydration.
+- **Copy focused tests from `incident-board` or `observatory` for:** advanced merge, scroll, once, rescue, and error-bag policies—not starter architecture.
 
 All examples are unpublished workspace members. Because most are not workspace default members, run their explicit package commands or use `cargo test --workspace` when validating everything.

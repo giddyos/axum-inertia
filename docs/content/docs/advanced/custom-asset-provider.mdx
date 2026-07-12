@@ -12,20 +12,6 @@ browser assets. The provider supplies the Inertia version and trusted root-docum
 tags; with the default `vite` feature, it can also let the Inertia router serve a
 directory.
 
-## Prerequisites
-
-`AssetProvider`, `AssetContext`, `AssetTags`, `AssetError`, and `AssetVersion` need no
-Cargo feature. The optional `static_service` method and `StaticAssetService` type are
-available only with `vite`, which is a default feature:
-
-```toml title="Cargo.toml"
-[dependencies]
-inertia-axum = "1.0.0-alpha.1"
-```
-
-If a CDN, reverse proxy, or separate Axum route serves the files, omit
-`static_service`; the provider then works with `default-features = false`.
-
 ## Implement the provider
 
 This provider is reduced from the custom provider exercised by the adapter's Vite
@@ -136,7 +122,7 @@ of whether `.version(...)` appears before or after `.assets(...)`. `public_path(
 still controls the custom provider's optional static mount and may appear in either
 order.
 
-## Production guidance
+## Deployment trust
 
 Generate tags and the version from one immutable build artifact so they cannot drift.
 Prefer content-fingerprinted filenames with long-lived cache headers, and use a
@@ -145,7 +131,7 @@ return `None` from `static_service()` and configure its cache and compression po
 there. Keep every URL emitted by `render_tags()` consistent with that deployment
 prefix.
 
-## Related guides
+## Continue
 
 - [Vite and assets](/docs/guides/vite-and-assets)
 - [Application configuration](/docs/reference/configuration)
