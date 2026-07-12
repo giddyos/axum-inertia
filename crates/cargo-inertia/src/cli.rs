@@ -42,7 +42,7 @@ pub fn run() -> Result<(), CliError> {
         #[cfg(feature = "init")]
         Command::Init(args) => crate::init::run_args(args, &mut std::io::stdout().lock()),
         #[cfg(feature = "dev")]
-        Command::Dev(args) => crate::dev::run(&args.frontend, args.port).map_err(Into::into),
+        Command::Dev(args) => crate::dev::run_args(args),
         #[cfg(feature = "check")]
         Command::Check(args) => crate::check::run(&args.path, &args.frontend).map_err(Into::into),
     }
