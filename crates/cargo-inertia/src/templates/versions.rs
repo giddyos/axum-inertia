@@ -30,7 +30,7 @@ pub const VERSIONS: TemplateVersions = TemplateVersions {
     react_types: "19.2.2",
     react_dom_types: "19.2.2",
     vite_plugin_react: "6.0.0",
-    svelte: "5.55.7",
+    svelte: "5.56.4",
     svelte_check: "4.3.4",
     vite_plugin_svelte: "7.1.2",
     vue: "3.5.29",
