@@ -11,7 +11,6 @@ pub mod error;
 pub mod framework;
 #[cfg(feature = "init")]
 pub mod init;
-#[cfg(feature = "package-managers")]
 pub mod package_manager;
 pub mod ssr;
 #[cfg(feature = "templates")]

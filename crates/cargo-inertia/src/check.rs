@@ -1,3 +1,5 @@
+pub mod args;
+
 use cargo_metadata::MetadataCommand;
 use std::{
     collections::{BTreeMap, BTreeSet},

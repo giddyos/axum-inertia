@@ -1,3 +1,7 @@
+pub mod answers;
+pub mod args;
+pub mod options;
+
 use crate::framework::Framework;
 use std::{
     fs,
@@ -25,7 +29,7 @@ fn run_with_writer(
         Framework::Vue => ("vue", "vue", VUE_MAIN, VUE_HOME),
     };
     write(&frontend.join("package.json"), package_json(framework))?;
-    if matches!(framework, Frontend::Svelte) {
+    if matches!(framework, Framework::Svelte) {
         write(&frontend.join("pnpm-workspace.yaml"), SVELTE_PNPM_WORKSPACE)?;
         write(&frontend.join("svelte.config.js"), SVELTE_CONFIG)?;
         write(&frontend.join("tsconfig.json"), SVELTE_TSCONFIG)?;
@@ -291,9 +295,9 @@ mod tests {
     #[test]
     fn creates_each_supported_framework_skeleton() {
         for (name, framework, extension, adapter) in [
-            ("svelte", Frontend::Svelte, "svelte", "@inertiajs/svelte"),
-            ("react", Frontend::React, "tsx", "@inertiajs/react"),
-            ("vue", Frontend::Vue, "vue", "@inertiajs/vue3"),
+            ("svelte", Framework::Svelte, "svelte", "@inertiajs/svelte"),
+            ("react", Framework::React, "tsx", "@inertiajs/react"),
+            ("vue", Framework::Vue, "vue", "@inertiajs/vue3"),
         ] {
             let root = std::env::temp_dir()
                 .join(format!("cargo-inertia-init-{name}-{}", std::process::id()));
@@ -319,7 +323,7 @@ mod tests {
             );
 
             insta::assert_snapshot!(format!("{name}_package_json"), package);
-            if matches!(framework, Frontend::Svelte) {
+            if matches!(framework, Framework::Svelte) {
                 insta::assert_snapshot!(
                     "svelte_pnpm_workspace_yaml",
                     fs::read_to_string(root.join("frontend/pnpm-workspace.yaml")).unwrap()
@@ -349,7 +353,7 @@ mod tests {
                     .replace(root.to_str().unwrap(), "[ROOT]")
             );
 
-            if matches!(framework, Frontend::React) {
+            if matches!(framework, Framework::React) {
                 assert!(root.join("frontend/src/Pages/Home.tsx").is_file());
                 assert!(!root.join("frontend/src/Pages/Home.jsx").exists());
             }

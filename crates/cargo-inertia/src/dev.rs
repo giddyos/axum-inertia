@@ -1,3 +1,5 @@
+pub mod args;
+
 use std::{
     path::Path,
     process::{Command, Stdio},
