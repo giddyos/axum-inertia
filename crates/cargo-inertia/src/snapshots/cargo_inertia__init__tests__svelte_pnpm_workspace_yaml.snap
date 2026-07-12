@@ -1,0 +1,6 @@
+---
+source: crates/cargo-inertia/src/init.rs
+expression: "fs::read_to_string(root.join(\"frontend/pnpm-workspace.yaml\")).unwrap()"
+---
+allowBuilds:
+  svelte-preprocess: true

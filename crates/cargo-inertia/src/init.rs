@@ -26,6 +26,7 @@ fn run_with_writer(
     };
     write(&frontend.join("package.json"), package_json(framework))?;
     if matches!(framework, Frontend::Svelte) {
+        write(&frontend.join("pnpm-workspace.yaml"), SVELTE_PNPM_WORKSPACE)?;
         write(&frontend.join("svelte.config.js"), SVELTE_CONFIG)?;
         write(&frontend.join("tsconfig.json"), SVELTE_TSCONFIG)?;
     }
@@ -93,6 +94,10 @@ const SVELTE_PACKAGE: &str = r#"{
 }
 "#;
 
+const SVELTE_PNPM_WORKSPACE: &str = r"allowBuilds:
+  svelte-preprocess: true
+";
+
 const REACT_PACKAGE: &str = r#"{
   "private": true,
   "type": "module",
@@ -132,7 +137,7 @@ const VUE_PACKAGE: &str = r#"{
 }
 "#;
 
-const SVELTE_MAIN: &str = r#"import { createInertiaApp } from '@inertiajs/svelte'
+const SVELTE_MAIN: &str = r"import { createInertiaApp } from '@inertiajs/svelte'
 import { mount } from 'svelte'
 
 createInertiaApp({
@@ -141,14 +146,14 @@ createInertiaApp({
     mount(App, { target: el, props })
   },
 })
-"#;
+";
 
-const SVELTE_CONFIG: &str = r#"import preprocess from 'svelte-preprocess'
+const SVELTE_CONFIG: &str = r"import preprocess from 'svelte-preprocess'
 
 export default {
   preprocess: preprocess({ typescript: true }),
 }
-"#;
+";
 
 const SVELTE_TSCONFIG: &str = r#"{
   "compilerOptions": {
@@ -192,7 +197,7 @@ const SVELTE_HOME: &str = r#"<script lang="ts">
 </main>
 "#;
 
-const REACT_MAIN: &str = r#"import { createInertiaApp } from '@inertiajs/react'
+const REACT_MAIN: &str = r"import { createInertiaApp } from '@inertiajs/react'
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 
@@ -202,7 +207,7 @@ createInertiaApp({
     createRoot(el).render(createElement(App, props))
   },
 })
-"#;
+";
 
 const REACT_HOME: &str = r#"import { Deferred } from '@inertiajs/react'
 
@@ -231,7 +236,7 @@ export default function Home({ greeting = 'Hello', stats }: Props) {
 }
 "#;
 
-const VUE_MAIN: &str = r#"import { createInertiaApp } from '@inertiajs/vue3'
+const VUE_MAIN: &str = r"import { createInertiaApp } from '@inertiajs/vue3'
 import { createApp, h } from 'vue'
 
 createInertiaApp({
@@ -242,7 +247,7 @@ createInertiaApp({
       .mount(el)
   },
 })
-"#;
+";
 
 const VUE_HOME: &str = r#"<script setup lang="ts">
 import { Deferred } from '@inertiajs/vue3'
@@ -315,6 +320,10 @@ mod tests {
 
             insta::assert_snapshot!(format!("{name}_package_json"), package);
             if matches!(framework, Frontend::Svelte) {
+                insta::assert_snapshot!(
+                    "svelte_pnpm_workspace_yaml",
+                    fs::read_to_string(root.join("frontend/pnpm-workspace.yaml")).unwrap()
+                );
                 insta::assert_snapshot!(
                     "svelte_config_js",
                     fs::read_to_string(root.join("frontend/svelte.config.js")).unwrap()

@@ -38,6 +38,7 @@ Every scaffold contains:
 ```text
 frontend/
 ├── package.json
+├── pnpm-workspace.yaml # Svelte only
 ├── vite.config.ts
 ├── svelte.config.js  # Svelte only
 ├── tsconfig.json     # Svelte only
@@ -49,8 +50,9 @@ frontend/
 
 The generated Vite config enables the framework plugin, `build.manifest`, and
 `src/main.ts` as the Rollup input. Every dependency is pinned to the maintained
-example version. Svelte adds `svelte-preprocess` `6.0.5`, a preprocessing config,
-and `verbatimModuleSyntax` TypeScript settings required to build the adapter.
+example version. Svelte adds `svelte-preprocess` `6.0.5`, a pnpm policy that allows
+only its pinned install script, a preprocessing config, and
+`verbatimModuleSyntax` TypeScript settings required to build the adapter.
 
 Each generated `Home` imports `Deferred`, renders `greeting` immediately, shows
 `Loading stats…`, and then renders the deferred `projects` and `tasks` values. React

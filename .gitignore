@@ -3,6 +3,7 @@
 docs/.next/
 docs/.source/
 docs/node_modules/
+docs/next-env.d.ts
 docs/*.tsbuildinfo
 **/*.snap.new
 examples/axum-*/**/node_modules/
