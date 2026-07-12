@@ -1,5 +1,5 @@
 //! Typed shared-provider integration coverage.
-
+#![allow(dead_code)]
 #![cfg(feature = "macros")]
 
 use axum::{

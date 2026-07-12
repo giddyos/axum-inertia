@@ -1,4 +1,5 @@
 //! Stateful client integration coverage.
+#![allow(dead_code)]
 
 use axum::{
     Router,

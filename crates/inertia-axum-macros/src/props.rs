@@ -2,19 +2,22 @@ use crate::{attributes, diagnostics::error};
 use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{
-    Attribute, Data, DeriveInput, Fields, Generics, Ident, Type, parse_quote, spanned::Spanned,
-};
+#[cfg(feature = "typegen")]
+use syn::Attribute;
+use syn::{Data, DeriveInput, Fields, Generics, Ident, Type, parse_quote, spanned::Spanned};
 
 pub(crate) struct FieldInfo {
     pub ident: Ident,
     #[allow(dead_code)]
     pub rust_ty: Type,
+    #[cfg(feature = "typegen")]
     pub exported_ty: Type,
     pub key_ty: Type,
     pub serialized_name: String,
     pub skip: bool,
+    #[cfg(feature = "typegen")]
     pub is_prop: bool,
+    #[cfg(feature = "typegen")]
     pub ts_attributes: Vec<Attribute>,
 }
 
@@ -66,11 +69,14 @@ pub(crate) fn fields(
             Ok(FieldInfo {
                 ident,
                 rust_ty: field.ty.clone(),
+                #[cfg(feature = "typegen")]
                 exported_ty: key_ty.clone(),
                 key_ty,
                 serialized_name,
                 skip: attrs.skip,
+                #[cfg(feature = "typegen")]
                 is_prop: prop.is_some(),
+                #[cfg(feature = "typegen")]
                 ts_attributes: field
                     .attrs
                     .iter()
