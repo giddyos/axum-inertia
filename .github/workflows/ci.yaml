@@ -16,6 +16,7 @@ env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
   INSTA_UPDATE: "no"
+  PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS: "true" 
 
 jobs:
   docs:
