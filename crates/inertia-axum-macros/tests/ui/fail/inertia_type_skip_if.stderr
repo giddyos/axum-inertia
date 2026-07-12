@@ -1,0 +1,5 @@
+error: error[INERTIA-TYPEGEN-011]: skip_serializing_if requires Option<T> or #[ts(optional)] so the TypeScript property can be absent
+ --> tests/ui/fail/inertia_type_skip_if.rs:6:5
+  |
+6 |     #[serde(skip_serializing_if = "String::is_empty")]
+  |     ^

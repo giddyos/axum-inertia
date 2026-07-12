@@ -17,3 +17,6 @@ pub use crate::CookieTransient;
 
 #[cfg(feature = "macros")]
 pub use crate::{InertiaForm, InertiaPage, InertiaProps};
+
+#[cfg(feature = "typegen")]
+pub use crate::InertiaType;

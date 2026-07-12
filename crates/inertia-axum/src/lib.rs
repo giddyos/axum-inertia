@@ -84,6 +84,8 @@ pub mod __typegen {
     pub use inertia_axum_typegen::*;
 }
 
+#[cfg(feature = "typegen")]
+pub use inertia_axum_macros::InertiaType;
 #[cfg(feature = "macros")]
 pub use inertia_axum_macros::{InertiaForm, InertiaPage, InertiaProps};
 

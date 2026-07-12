@@ -1,0 +1,5 @@
+error: InertiaType does not support unions
+ --> tests/ui/fail/inertia_type_union.rs:4:1
+  |
+4 | union Unsupported {
+  | ^^^^^

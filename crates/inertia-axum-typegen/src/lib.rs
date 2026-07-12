@@ -13,6 +13,8 @@ use std::{
 };
 use thiserror::Error;
 
+#[doc(hidden)]
+pub use serde;
 pub use ts_rs::*;
 
 /// Version of the JSON intermediate representation.
