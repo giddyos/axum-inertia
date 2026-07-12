@@ -73,12 +73,15 @@ pub mod __private {
     pub use axum::response::{IntoResponse, Response};
     pub use serde_json::{Value, to_value};
 
-    /// Temporary Phase 0 engine surface. Phase 1 replaces this with the
-    /// internal adapter crate while preserving the downstream path.
-    #[cfg(feature = "typegen-spike")]
-    pub mod typegen {
-        pub use ts_rs::*;
-    }
+    #[cfg(feature = "typegen")]
+    pub use inertia_axum_typegen as typegen;
+}
+
+/// Internal type-generation adapter used only by generated exporter tests.
+#[doc(hidden)]
+#[cfg(feature = "typegen")]
+pub mod __typegen {
+    pub use inertia_axum_typegen::*;
 }
 
 #[cfg(feature = "macros")]

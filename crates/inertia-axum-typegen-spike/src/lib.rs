@@ -189,5 +189,22 @@ mod spike {
     #[test]
     fn __inertia_typegen_library_target_spike() {
         prove_engine();
+        if std::env::var_os("INERTIA_TYPEGEN_STAGING").is_some() {
+            ia::__private::typegen::export_root::<UsersPage>(
+                ia::__private::typegen::RootMetadata {
+                    kind: ia::__private::typegen::RootKind::Page,
+                    rust_name: "UsersPage",
+                    ts_name: "UsersPageProps",
+                    component: Some("Users/Index"),
+                    shared: false,
+                    source: ia::__private::typegen::SourceLocation {
+                        file: file!().into(),
+                        line: line!(),
+                        module: module_path!().into(),
+                    },
+                },
+            )
+            .expect("Phase 1 IR export failed");
+        }
     }
 }

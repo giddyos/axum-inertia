@@ -9,6 +9,5 @@ publish = false
 workspace = true
 
 [dependencies]
-ia = { package = "inertia-axum", path = "../inertia-axum", default-features = false, features = ["typegen-spike"] }
+ia = { package = "inertia-axum", path = "../inertia-axum", default-features = false, features = ["typegen"] }
 serde.workspace = true
-

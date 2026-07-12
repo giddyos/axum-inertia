@@ -4,6 +4,7 @@ members = [
     "crates/inertia-axum",
     "crates/inertia-axum-macros",
     "crates/inertia-axum-test",
+    "crates/inertia-axum-typegen",
     "crates/cargo-inertia",
     "crates/inertia-axum-typegen-spike",
     "examples/axum-minimal",
@@ -19,6 +20,7 @@ default-members = [
     "crates/inertia-axum",
     "crates/inertia-axum-macros",
     "crates/inertia-axum-test",
+    "crates/inertia-axum-typegen",
 ]
 
 [workspace.package]
@@ -44,7 +46,8 @@ tower = "0.5.3"
 inertia-axum = { path = "crates/inertia-axum", version = "1.0.0-alpha.1" }
 inertia-axum-macros = { path = "crates/inertia-axum-macros", version = "1.0.0-alpha.1" }
 inertia-axum-test = { path = "crates/inertia-axum-test", version = "1.0.0-alpha.1" }
-ts-rs = { version = "=12.0.1", features = ["serde-compat"] }
+inertia-axum-typegen = { path = "crates/inertia-axum-typegen", version = "1.0.0-alpha.1" }
+ts-rs = { version = "=12.0.1", default-features = false, features = ["serde-compat"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

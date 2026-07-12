@@ -31,7 +31,7 @@ tracing = "0.1"
 sha2 = { version = "0.11", optional = true }
 tower-http = { version = "0.7", features = ["fs"], optional = true }
 inertia-axum-macros = { workspace = true, optional = true }
-ts-rs = { workspace = true, optional = true }
+inertia-axum-typegen = { workspace = true, optional = true }
 cookie = { version = "0.18", features = ["secure"], optional = true }
 tower-sessions = { version = "0.14", optional = true }
 http-body-util = { workspace = true, optional = true }
@@ -41,7 +41,7 @@ tokio = { workspace = true, features = ["io-util", "macros", "process", "rt", "s
 tower = { workspace = true, features = ["limit", "load-shed", "timeout", "util"], optional = true }
 
 [features]
-default = ["macros", "vite"]
+default = ["macros", "vite", "typegen"]
 askama = ["dep:askama"]
 macros = ["dep:inertia-axum-macros"]
 vite = ["dep:sha2", "dep:tower-http"]
@@ -50,7 +50,18 @@ tower-sessions = ["dep:tower-sessions"]
 garde = []
 validator = []
 test-support = []
-typegen-spike = ["dep:ts-rs"]
+typegen = ["macros", "dep:inertia-axum-typegen"]
+typegen-serde-json = ["typegen", "inertia-axum-typegen/serde-json"]
+typegen-uuid = ["typegen", "inertia-axum-typegen/uuid"]
+typegen-chrono = ["typegen", "inertia-axum-typegen/chrono"]
+typegen-jiff = ["typegen", "inertia-axum-typegen/jiff"]
+typegen-url = ["typegen", "inertia-axum-typegen/url"]
+typegen-bytes = ["typegen", "inertia-axum-typegen/bytes"]
+typegen-indexmap = ["typegen", "inertia-axum-typegen/indexmap"]
+typegen-semver = ["typegen", "inertia-axum-typegen/semver"]
+typegen-bigdecimal = ["typegen", "inertia-axum-typegen/bigdecimal"]
+typegen-smol-str = ["typegen", "inertia-axum-typegen/smol-str"]
+typegen-tokio = ["typegen", "inertia-axum-typegen/tokio"]
 ssr = [
     "dep:http-body-util",
     "dep:hyper",
