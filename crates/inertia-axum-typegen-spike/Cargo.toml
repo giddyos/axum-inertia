@@ -1,0 +1,14 @@
+[package]
+name = "inertia-axum-typegen-spike"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+ia = { package = "inertia-axum", path = "../inertia-axum", default-features = false, features = ["typegen-spike"] }
+serde.workspace = true
+
