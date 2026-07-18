@@ -1,0 +1,5 @@
+error: unsafe embedded frontend public_path `/assets"><script>`
+ --> tests/ui/fail/unsafe_public_path.rs:7:22
+  |
+7 |         public_path: "/assets\"><script>",
+  |                      ^^^^^^^^^^^^^^^^^^^^

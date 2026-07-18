@@ -1,0 +1,5 @@
+error: expected string literal
+ --> tests/ui/fail/non_literal.rs:7:15
+  |
+7 |         root: ROOT,
+  |               ^^^^

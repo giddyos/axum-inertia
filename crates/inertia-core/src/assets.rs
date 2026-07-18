@@ -134,6 +134,10 @@ pub trait AssetProvider: Clone + Send + Sync + 'static {
     fn source(&self) -> Option<Arc<dyn AssetSource>> {
         None
     }
+    /// Returns a provider-owned public path used by convenience builders.
+    fn public_path(&self) -> Option<&str> {
+        None
+    }
 }
 
 pub(crate) trait ErasedAssetProvider: Send + Sync {

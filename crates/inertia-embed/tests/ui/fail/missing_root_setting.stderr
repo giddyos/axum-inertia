@@ -1,0 +1,10 @@
+error: embed_frontend! requires `root: "..."`
+ --> tests/ui/fail/missing_root_setting.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         entry: "src/main.ts",
+6 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)

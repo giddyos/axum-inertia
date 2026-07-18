@@ -1,0 +1,12 @@
+error: duplicate normalized emitted path `assets/shared.91a0f52c.js` from `assets\shared.91a0f52c.js` and `assets/shared.91a0f52c.js`
+ --> tests/ui/fail/duplicate_normalized_path.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+6 | |         manifest: "../../../../crates/inertia-embed/tests/fixtures/valid/dist/.vite/duplicate.json",
+7 | |         entry: "src/main.ts",
+8 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)

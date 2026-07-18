@@ -1,0 +1,12 @@
+{
+  "src/main.ts": {
+    "file": "assets/main-C6R2N8QK.js",
+    "imports": ["_one.js", "_two.js"]
+  },
+  "_one.js": {
+    "file": "assets\\shared.91a0f52c.js"
+  },
+  "_two.js": {
+    "file": "assets/shared.91a0f52c.js"
+  }
+}

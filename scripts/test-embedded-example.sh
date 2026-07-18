@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+frontend="$repository/examples/axum-embedded/frontend"
+dist="$frontend/dist"
+target="${CARGO_TARGET_DIR:-$repository/target}"
+isolated="$(mktemp -d)"
+hidden_dist=""
+server_pid=""
+
+cleanup() {
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$hidden_dist" && -d "$hidden_dist" && ! -e "$dist" ]]; then
+    mv "$hidden_dist" "$dist"
+  fi
+  rm -rf "$isolated"
+}
+trap cleanup EXIT
+
+pnpm --dir "$frontend" install --frozen-lockfile --prefer-offline
+pnpm --dir "$frontend" build
+cargo build --locked --release -p axum-embedded
+
+cp "$target/release/axum-embedded" "$isolated/axum-embedded"
+hidden_dist="$frontend/dist.self-contained-test.$$"
+mv "$dist" "$hidden_dist"
+
+(
+  cd "$isolated"
+  ADDR=127.0.0.1:0 ./axum-embedded >server.log 2>&1
+) &
+server_pid=$!
+
+address=""
+for _ in {1..100}; do
+  if [[ -f "$isolated/server.log" ]]; then
+    address="$(sed -n 's/^LISTENING //p' "$isolated/server.log" | head -n 1)"
+  fi
+  [[ -n "$address" ]] && break
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    cat "$isolated/server.log" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+
+if [[ -z "$address" ]]; then
+  echo "axum-embedded did not report a listening address" >&2
+  exit 1
+fi
+
+curl --fail --silent --show-error "http://$address/" >"$isolated/index.html"
+grep -q 'rel="stylesheet"' "$isolated/index.html"
+grep -q '<script type="module"' "$isolated/index.html"
+
+assets=()
+while IFS= read -r asset; do
+  assets+=("$asset")
+done < <(
+  grep -Eo '(href|src)="[^"]+"' "$isolated/index.html" |
+    sed -E 's/^[^"]*"([^"]+)"$/\1/'
+)
+if [[ "${#assets[@]}" -lt 2 ]]; then
+  echo "expected embedded script and stylesheet URLs" >&2
+  exit 1
+fi
+
+for asset in "${assets[@]}"; do
+  output="$isolated/$(basename "$asset")"
+  curl --fail --silent --show-error "http://$address$asset" >"$output"
+  [[ -s "$output" ]]
+done
+
+[[ ! -e "$dist" ]]
+echo "axum-embedded served its page and ${#assets[@]} assets with the frontend build hidden"

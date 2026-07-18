@@ -1,0 +1,15 @@
+[package]
+name = "axum-embedded"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = { workspace = true, features = ["http1", "tokio"] }
+inertia-axum.workspace = true
+inertia-embed.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }

@@ -1,0 +1,27 @@
+[package]
+name = "inertia-embed-macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Compile-time Vite frontend embedding macro for Inertia Rust applications"
+
+[lib]
+proc-macro = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mime_guess.workspace = true
+proc-macro-crate = "3"
+proc-macro2.workspace = true
+quote.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+syn.workspace = true
+walkdir = { version = "2", default-features = false }

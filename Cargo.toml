@@ -3,12 +3,15 @@ resolver = "3"
 members = [
     "crates/inertia-core",
     "crates/inertia-axum",
+    "crates/inertia-embed",
+    "crates/inertia-embed/macros",
     "crates/inertia-macros",
     "crates/inertia-test",
     "crates/inertia-typegen",
     "crates/cargo-inertia",
     "crates/inertia-axum-typegen-spike",
     "examples/axum-minimal",
+    "examples/axum-embedded",
     "examples/axum-askama",
     "examples/axum-svelte",
     "examples/axum-react",
@@ -20,6 +23,7 @@ members = [
 default-members = [
     "crates/inertia-core",
     "crates/inertia-axum",
+    "crates/inertia-embed",
     "crates/inertia-macros",
     "crates/inertia-test",
     "crates/inertia-typegen",
@@ -39,6 +43,9 @@ askama = { version = "0.16", default-features = false, features = ["config", "de
 axum = { version = "0.8.9", default-features = false }
 bytes = { version = "1", default-features = false }
 http = { version = "1", default-features = false, features = ["std"] }
+mime_guess = "2"
+proc-macro2 = "1"
+quote = "1"
 serde = { version = "1", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 http-body-util = { version = "0.1", default-features = false }
@@ -47,8 +54,10 @@ hyper-util = { version = "0.1", default-features = false }
 sha2 = { version = "0.11", default-features = false }
 tokio = { version = "1", default-features = false }
 tower = { version = "0.5.3", default-features = false }
+syn = { version = "2", features = ["full", "extra-traits"] }
 inertia-core = { path = "crates/inertia-core", version = "1.0.0-alpha.1" }
 inertia-axum = { path = "crates/inertia-axum", version = "1.0.0-alpha.1" }
+inertia-embed = { path = "crates/inertia-embed", version = "1.0.0-alpha.1" }
 inertia-macros = { path = "crates/inertia-macros", version = "1.0.0-alpha.1" }
 inertia-test = { path = "crates/inertia-test", version = "1.0.0-alpha.1" }
 inertia-typegen = { path = "crates/inertia-typegen", version = "1.0.0-alpha.1" }

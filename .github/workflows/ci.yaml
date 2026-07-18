@@ -108,6 +108,24 @@ jobs:
           save-if: false
       - run: mise run ci:ssr-node-lifecycle
 
+  embedded-example:
+    name: Self-contained embedded example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
+        with:
+          version: 2026.7.5
+          install: true
+          cache: true
+      - name: Restore stable Cargo cache
+        uses: Swatinem/rust-cache@v2.9.1
+        with:
+          shared-key: stable
+          workspaces: ". -> target"
+          save-if: false
+      - run: mise run ci:embedded
+
   production-example:
     name: Production example SSR (${{ matrix.crate }})
     runs-on: ubuntu-latest

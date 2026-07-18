@@ -1,0 +1,5 @@
+{
+  "src/main.ts": {
+    "file": "../outside.js"
+  }
+}

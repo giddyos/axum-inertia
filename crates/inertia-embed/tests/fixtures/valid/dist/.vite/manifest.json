@@ -1,0 +1,25 @@
+{
+  "src/main.ts": {
+    "file": "assets/main-C6R2N8QK.js",
+    "css": ["assets/main-30f2a8d9.css"],
+    "imports": ["_shared.js"],
+    "dynamicImports": ["_dynamic.js"],
+    "assets": [
+      "assets/file name.txt",
+      "images/pixel.bin",
+      "assets\\windows-ABCDEF12.js"
+    ]
+  },
+  "_shared.js": {
+    "file": "assets/shared.91a0f52c.js",
+    "css": ["assets/shared.css"],
+    "imports": ["_nested.js"]
+  },
+  "_nested.js": {
+    "file": "assets/nested-1234abcd.js"
+  },
+  "_dynamic.js": {
+    "file": "assets/dynamic-abcdef12.js",
+    "css": ["assets/theme&print.css"]
+  }
+}

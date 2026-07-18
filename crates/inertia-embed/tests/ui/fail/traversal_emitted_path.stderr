@@ -1,0 +1,12 @@
+error: emitted path `../outside.js` contains an empty or traversal path segment
+ --> tests/ui/fail/traversal_emitted_path.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+6 | |         manifest: "../../../../crates/inertia-embed/tests/fixtures/valid/dist/.vite/traversal.json",
+7 | |         entry: "src/main.ts",
+8 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)

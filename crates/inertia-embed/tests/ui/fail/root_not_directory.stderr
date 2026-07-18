@@ -1,0 +1,5 @@
+error: embedded frontend root `../../../../crates/inertia-embed/Cargo.toml` is not a directory
+ --> tests/ui/fail/root_not_directory.rs:5:15
+  |
+5 |         root: "../../../../crates/inertia-embed/Cargo.toml",
+  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

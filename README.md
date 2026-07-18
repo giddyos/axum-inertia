@@ -9,7 +9,8 @@ The Inertia.js v3 server adapter for building server-driven Svelte, React, or Vu
 - Dynamic `page!` responses and strongly typed pages and props
 - Immediate, shared, lazy, optional, deferred, rescued, merge, scroll, and once data
 - Redirect-based validation, old input, error bags, and flash values
-- Vite assets with client-side or server-side rendering
+- Vite assets with client-side rendering, server-side rendering, or a fully
+  embedded production frontend
 - In-process page, redirect, deferred-data, cookie, and SSR testing
 
 ```rust

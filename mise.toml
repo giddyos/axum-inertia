@@ -25,6 +25,7 @@ run = [
   "pnpm --dir examples/axum-svelte/svelte-app install --frozen-lockfile --prefer-offline",
   "pnpm --dir examples/axum-react/react-app install --frozen-lockfile --prefer-offline",
   "pnpm --dir examples/axum-vue/vue-app install --frozen-lockfile --prefer-offline",
+  "pnpm --dir examples/axum-embedded/frontend install --frozen-lockfile --prefer-offline",
 ]
 
 [tasks.fmt]
@@ -117,6 +118,8 @@ RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 cargo package --locked --allow-dirty -p inertia-macros
 cargo package --locked --allow-dirty -p inertia-typegen
 cargo --config 'patch.crates-io.inertia-macros.path="crates/inertia-macros"' --config 'patch.crates-io.inertia-typegen.path="crates/inertia-typegen"' package --locked --allow-dirty -p inertia-core
+cargo package --locked --allow-dirty -p inertia-embed-macros
+cargo --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"' --config 'patch.crates-io.inertia-core.path="crates/inertia-core"' --config 'patch.crates-io.inertia-embed-macros.path="crates/inertia-embed/macros"' --config 'patch.crates-io.inertia-macros.path="crates/inertia-macros"' --config 'patch.crates-io.inertia-typegen.path="crates/inertia-typegen"' package --locked --allow-dirty -p inertia-embed
 cargo --config 'patch.crates-io.inertia-core.path="crates/inertia-core"' --config 'patch.crates-io.inertia-macros.path="crates/inertia-macros"' --config 'patch.crates-io.inertia-typegen.path="crates/inertia-typegen"' package --locked --allow-dirty -p inertia-axum
 cargo --config 'patch.crates-io.inertia-axum.path="crates/inertia-axum"' --config 'patch.crates-io.inertia-core.path="crates/inertia-core"' --config 'patch.crates-io.inertia-macros.path="crates/inertia-macros"' --config 'patch.crates-io.inertia-typegen.path="crates/inertia-typegen"' package --locked --allow-dirty -p inertia-test
 cargo --config 'patch.crates-io.inertia-typegen.path="crates/inertia-typegen"' package --locked --allow-dirty -p cargo-inertia
@@ -200,6 +203,11 @@ test -f dist/ssr/app.js
 description = "Test the managed Node SSR lifecycle"
 run = "cargo test --locked -p inertia-axum --features ssr --test ssr_node_lifecycle -- --ignored --test-threads=1"
 
+[tasks."ci:embedded"]
+description = "Prove the embedded release executable needs no frontend files"
+file = "scripts/test-embedded-example.sh"
+raw = true
+
 [tasks."ci:production"]
 description = "Build and test production SSR examples"
 file = "scripts/test-live-ssr.sh"
@@ -244,6 +252,7 @@ run = [
   { task = "ci:frontend", args = ["axum-react", "react-app"] },
   { task = "ci:frontend", args = ["axum-vue", "vue-app"] },
   { task = "ci:ssr-node-lifecycle" },
+  { task = "ci:embedded" },
   { task = "ci:production", args = ["--example-only", "axum-svelte"] },
   { task = "ci:production", args = ["--example-only", "axum-react"] },
   { task = "ci:production", args = ["--example-only", "axum-vue"] },

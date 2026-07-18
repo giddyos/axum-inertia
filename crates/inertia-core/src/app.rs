@@ -122,6 +122,19 @@ impl InertiaApp {
         }
     }
 
+    /// Starts an application setup with a compile-time or custom asset provider.
+    pub fn embedded<P>(provider: P) -> InertiaAppBuilder
+    where
+        P: AssetProvider,
+    {
+        let public_path = provider.public_path().map(str::to_owned);
+        let builder = InertiaApp::default_root().assets(provider);
+        match public_path {
+            Some(path) => builder.public_path(path),
+            None => builder,
+        }
+    }
+
     /// Starts a convention-based Vite setup rooted at `root`.
     #[cfg(feature = "vite")]
     pub fn vite(root: impl Into<std::path::PathBuf>) -> InertiaAppBuilder {

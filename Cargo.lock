@@ -337,6 +337,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-embedded"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "inertia-axum",
+ "inertia-embed",
+ "tokio",
+]
+
+[[package]]
 name = "axum-minimal"
 version = "0.1.0"
 dependencies = [
@@ -1929,6 +1939,40 @@ dependencies = [
  "tower",
  "tower-sessions",
  "tracing",
+]
+
+[[package]]
+name = "inertia-embed"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "axum",
+ "bytes",
+ "criterion",
+ "http",
+ "inertia-axum",
+ "inertia-core",
+ "inertia-embed-macros",
+ "mime_guess",
+ "serde_json",
+ "sha2 0.11.0",
+ "tokio",
+ "tower",
+ "trybuild",
+]
+
+[[package]]
+name = "inertia-embed-macros"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "mime_guess",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "syn 2.0.118",
+ "walkdir",
 ]
 
 [[package]]

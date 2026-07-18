@@ -1,0 +1,12 @@
+error: emitted file `images/pixel.bin` is 84128 bytes, exceeding the 1 byte individual-asset limit
+ --> tests/ui/fail/asset_size_limit.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+6 | |         entry: "src/main.ts",
+7 | |         max_asset_size: 1,
+8 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)

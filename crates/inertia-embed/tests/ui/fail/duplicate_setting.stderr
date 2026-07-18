@@ -1,0 +1,5 @@
+error: duplicate embed_frontend! setting `root`
+ --> tests/ui/fail/duplicate_setting.rs:6:9
+  |
+6 |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+  |         ^^^^

@@ -9,6 +9,8 @@ docs/*.tsbuildinfo
 crates/cargo-inertia/tests/fixtures/*/Cargo.lock
 examples/axum-*/**/node_modules/
 examples/axum-*/**/dist/
+!examples/axum-embedded/frontend/dist/
+!examples/axum-embedded/frontend/dist/**
 examples/axum-*/**/playwright-report/
 examples/axum-*/**/test-results/
 examples/axum-*/public/build/

@@ -1,0 +1,12 @@
+error: embedded frontend exceeds the 1 file limit
+ --> tests/ui/fail/file_limit.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+6 | |         entry: "src/main.ts",
+7 | |         max_files: 1,
+8 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)

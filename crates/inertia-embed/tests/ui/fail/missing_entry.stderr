@@ -1,0 +1,5 @@
+error: Vite entry `src/missing.ts` was not found in `../../../../crates/inertia-embed/tests/fixtures/valid/dist/.vite/manifest.json`
+ --> tests/ui/fail/missing_entry.rs:6:16
+  |
+6 |         entry: "src/missing.ts",
+  |                ^^^^^^^^^^^^^^^^

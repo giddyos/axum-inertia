@@ -1,0 +1,5 @@
+error: unknown embed_frontend! setting `mystery`
+ --> tests/ui/fail/unknown_setting.rs:7:9
+  |
+7 |         mystery: true,
+  |         ^^^^^^^

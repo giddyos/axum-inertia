@@ -1,0 +1,5 @@
+error: embed_frontend! `max_files` must be between 1 and 100000; only `max_total_size` may be 0 to disable its limit
+ --> tests/ui/fail/invalid_limit.rs:7:20
+  |
+7 |         max_files: 0,
+  |                    ^

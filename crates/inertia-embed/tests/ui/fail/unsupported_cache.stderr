@@ -1,0 +1,5 @@
+error: embed_frontend! `cache` currently supports only "auto"
+ --> tests/ui/fail/unsupported_cache.rs:7:16
+  |
+7 |         cache: "immutable",
+  |                ^^^^^^^^^^^

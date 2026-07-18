@@ -1,0 +1,10 @@
+error: embed_frontend! requires `entry: "..."`
+ --> tests/ui/fail/missing_entry_setting.rs:4:13
+  |
+4 |       let _ = embed_frontend! {
+  |  _____________^
+5 | |         root: "../../../../crates/inertia-embed/tests/fixtures/valid/dist",
+6 | |     };
+  | |_____^
+  |
+  = note: this error originates in the macro `embed_frontend` (in Nightly builds, run with -Z macro-backtrace for more info)
