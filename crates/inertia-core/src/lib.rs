@@ -30,7 +30,12 @@ pub use ssr::{
 };
 
 pub use app::{ErrorHandler, InertiaApp, InertiaAppBuilder};
-pub use assets::{AssetContext, AssetError, AssetProvider, AssetVersion, ConfigError};
+#[cfg(feature = "filesystem-assets")]
+pub use assets::DirectoryAssetSource;
+pub use assets::{
+    AssetBody, AssetContext, AssetError, AssetProvider, AssetRequest, AssetResponse, AssetRuntime,
+    AssetSource, AssetVersion, ConfigError,
+};
 pub use engine::{CoreError, PreparedRequest, VersionCheck};
 pub use form::{Errors, FormError, InertiaForm as Form, Validate, Validated};
 pub use headers::*;

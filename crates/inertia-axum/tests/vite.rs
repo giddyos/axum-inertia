@@ -5,18 +5,23 @@
 use axum::{
     Router,
     body::{Body, to_bytes},
-    http::{Request, StatusCode},
+    http::{
+        HeaderMap, HeaderValue, Method, Request, StatusCode,
+        header::{CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
+    },
     routing::get,
 };
 use inertia_axum::{
-    AssetContext, AssetError, AssetProvider, AssetTags, AssetVersion, DynamicPage, InertiaApp,
-    Page, RouterInertiaExt, X_INERTIA, X_INERTIA_VERSION, page,
+    AssetBody, AssetContext, AssetError, AssetProvider, AssetRequest, AssetResponse, AssetSource,
+    AssetTags, AssetVersion, DynamicPage, InertiaApp, Page, RouterInertiaExt, X_INERTIA,
+    X_INERTIA_VERSION, page,
 };
 use serde_json::{Value, json};
 use std::{
     fs,
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
+    sync::{Arc, Mutex},
 };
 use tower::ServiceExt;
 
@@ -46,13 +51,54 @@ struct NumericAssets {
 }
 
 impl AssetProvider for NumericAssets {
-    fn version(&self) -> &AssetVersion {
-        &self.version
+    fn version(&self) -> AssetVersion {
+        self.version.clone()
     }
     fn render_tags(&self, _context: AssetContext<'_>) -> Result<AssetTags, AssetError> {
         Ok(AssetTags::new(
             "<script src=\"/custom.js\"></script>".to_owned(),
         ))
+    }
+}
+
+#[derive(Debug)]
+struct RecordingSource {
+    paths: Arc<Mutex<Vec<String>>>,
+}
+
+impl AssetSource for RecordingSource {
+    fn get(&self, request: AssetRequest<'_>) -> Option<AssetResponse> {
+        self.paths.lock().unwrap().push(request.path.to_owned());
+        (request.path == "nested/app.js").then(|| {
+            let mut headers = HeaderMap::new();
+            headers.insert("x-asset-source", HeaderValue::from_static("core"));
+            AssetResponse {
+                status: StatusCode::OK,
+                headers,
+                body: AssetBody::Static(b"adapter asset"),
+            }
+        })
+    }
+}
+
+#[derive(Clone)]
+struct SourceAssets {
+    source: Arc<RecordingSource>,
+}
+
+impl AssetProvider for SourceAssets {
+    fn version(&self) -> AssetVersion {
+        AssetVersion::from("source-v1")
+    }
+
+    fn render_tags(&self, _context: AssetContext<'_>) -> Result<AssetTags, AssetError> {
+        Ok(AssetTags::new(
+            "<script src=\"/assets/nested/app.js\"></script>".to_owned(),
+        ))
+    }
+
+    fn source(&self) -> Option<Arc<dyn AssetSource>> {
+        Some(self.source.clone())
     }
 }
 
@@ -114,6 +160,7 @@ async fn production_manifest_resolves_imports_css_version_and_static_files() {
     assert!(html.contains("modulepreload"));
     assert!(html.contains("/build/assets/main-123.js"));
     let response = app
+        .clone()
         .oneshot(
             Request::builder()
                 .uri("/build/assets/main-123.js")
@@ -123,7 +170,147 @@ async fn production_manifest_resolves_imports_css_version_and_static_files() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[CONTENT_TYPE], "text/javascript");
+    assert_eq!(response.headers()[CONTENT_LENGTH], "16");
+    let etag = response.headers()[ETAG].clone();
+    let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(body, "export default 1");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri("/build/assets/main-123.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[ETAG], etag);
+    assert!(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/build/assets/main-123.js")
+                .header(IF_NONE_MATCH, &etag)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    assert!(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/build/assets/main-123.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/build/assets/missing.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
     fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn custom_source_is_mounted_with_exact_public_path_stripping() {
+    let paths = Arc::new(Mutex::new(Vec::new()));
+    let source = Arc::new(RecordingSource {
+        paths: paths.clone(),
+    });
+    let app = Router::new().inertia(
+        InertiaApp::default_root()
+            .assets(SourceAssets { source })
+            .public_path("/assets/")
+            .build()
+            .unwrap(),
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/assets/nested/app.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["x-asset-source"], "core");
+    assert_eq!(
+        to_bytes(response.into_body(), usize::MAX).await.unwrap(),
+        "adapter asset"
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/assets2/nested/app.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(paths.lock().unwrap().as_slice(), ["nested/app.js"]);
+}
+
+#[tokio::test]
+async fn no_asset_route_is_registered_without_a_source() {
+    let app = Router::new()
+        .route("/build/{*path}", get(|| async { "application fallback" }))
+        .inertia(
+            InertiaApp::default_root()
+                .assets(NumericAssets {
+                    version: 1_u64.into(),
+                })
+                .build()
+                .unwrap(),
+        );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/build/app.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        to_bytes(response.into_body(), usize::MAX).await.unwrap(),
+        "application fallback"
+    );
 }
 
 #[tokio::test]

@@ -21,6 +21,7 @@ bytes.workspace = true
 fluent-uri = "0.4.1"
 futures-util = "0.3"
 http.workspace = true
+mime_guess = { version = "2", optional = true }
 serde = { workspace = true, features = ["rc"] }
 serde_json.workspace = true
 serde_urlencoded = "0.7"
@@ -43,7 +44,8 @@ inertia-typegen = { workspace = true, optional = true }
 default = ["macros", "typegen"]
 askama = ["dep:askama"]
 macros = ["dep:inertia-macros"]
-vite = ["dep:sha2"]
+filesystem-assets = ["dep:mime_guess", "dep:sha2"]
+vite = ["filesystem-assets"]
 cookies = ["dep:cookie", "dep:sha2"]
 tower-sessions = ["dep:tower-sessions"]
 garde = []

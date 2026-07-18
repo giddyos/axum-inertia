@@ -31,16 +31,19 @@ pub use inertia_core::{
     X_REQUESTED_WITH,
 };
 pub use inertia_core::{
-    AssetContext, AssetError, AssetProvider, AssetVersion, Component, ConfigError, CoreBody,
-    CoreError, CoreResponse, ErrorHandler, Errors, HeadMarkup, HtmlResponseContext, InertiaApp,
-    InertiaAppBuilder, InertiaPage, InertiaPageBuilder, InertiaProps, InertiaResult,
-    IntoInertiaProps, IntoPageProps, IntoScrollPage, LoadPolicy, MemoryTransient, MergePolicy,
-    MountMarkup, OncePolicy, OnceProp, Page, PageMetadata, PageOptions, Prop, PropError, PropKey,
-    PropOptions, Props, RequestContext, RootAssetTags as AssetTags, RootContext, RootView,
-    ScopedInertiaProps, ScrollPage, ScrollPolicy, ScrollProps, Share, ShareContext, TransientData,
-    TransientRequest, TransientStore, Validate, VersionCheck, always, defer, lazy, merge, once,
-    optional, scroll,
+    AssetBody, AssetContext, AssetError, AssetProvider, AssetRequest, AssetResponse, AssetRuntime,
+    AssetSource, AssetVersion, Component, ConfigError, CoreBody, CoreError, CoreResponse,
+    ErrorHandler, Errors, HeadMarkup, HtmlResponseContext, InertiaApp, InertiaAppBuilder,
+    InertiaPage, InertiaPageBuilder, InertiaProps, InertiaResult, IntoInertiaProps, IntoPageProps,
+    IntoScrollPage, LoadPolicy, MemoryTransient, MergePolicy, MountMarkup, OncePolicy, OnceProp,
+    Page, PageMetadata, PageOptions, Prop, PropError, PropKey, PropOptions, Props, RequestContext,
+    RootAssetTags as AssetTags, RootContext, RootView, ScopedInertiaProps, ScrollPage,
+    ScrollPolicy, ScrollProps, Share, ShareContext, TransientData, TransientRequest,
+    TransientStore, Validate, VersionCheck, always, defer, lazy, merge, once, optional, scroll,
 };
+
+#[cfg(feature = "vite")]
+pub use inertia_core::DirectoryAssetSource;
 
 #[cfg(feature = "askama")]
 pub use inertia_core::{AskamaRoot, AskamaRootContext, askama};
@@ -56,9 +59,6 @@ pub use inertia_core::InertiaType;
 
 #[cfg(feature = "macros")]
 pub use inertia_core::InertiaForm;
-
-#[cfg(feature = "vite")]
-pub use assets::StaticAssetService;
 
 #[cfg(feature = "ssr")]
 pub use inertia_core::ssr::{

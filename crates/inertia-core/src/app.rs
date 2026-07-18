@@ -3,7 +3,10 @@
 #[cfg(feature = "vite")]
 use crate::assets::ViteConfig;
 use crate::{
-    assets::{AssetProvider, AssetRuntime, ConfigError, ErasedAssetProvider},
+    assets::{
+        AssetProvider, AssetRuntime, AssetSource, ConfigError, ErasedAssetProvider,
+        normalize_public_path,
+    },
     root::{CompiledRootTemplate, DefaultRoot, RootView, SharedRootView},
     share::{Share, SharedProvider},
     transient::{SharedTransientStore, TransientStore},
@@ -64,6 +67,16 @@ impl<T: ErrorHandler> ErasedErrorHandler for T {
 }
 
 impl InertiaApp {
+    /// Returns the framework-neutral static asset source, when configured.
+    pub fn asset_source(&self) -> Option<&Arc<dyn AssetSource>> {
+        self.inner.assets.source()
+    }
+
+    /// Returns the normalized URL prefix under which adapters serve assets.
+    pub fn asset_public_path(&self) -> &str {
+        self.inner.assets.public_path()
+    }
+
     /// Returns the latest locally recorded SSR health without network I/O.
     #[cfg(feature = "ssr")]
     pub fn ssr_health(&self) -> crate::SsrHealth {
@@ -172,6 +185,7 @@ impl InertiaAppBuilder {
         if let Some(provider) = self.asset_provider.take() {
             self.assets = provider.build_runtime(&self.public_path)?;
         }
+        self.assets.public_path = normalize_public_path(&self.public_path)?;
         Ok(())
     }
 

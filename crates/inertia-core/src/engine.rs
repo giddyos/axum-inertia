@@ -262,13 +262,6 @@ impl InertiaApp {
             transient_seed,
         })))
     }
-
-    /// Returns the filesystem mount retained for the Axum compatibility phase.
-    #[cfg(feature = "vite")]
-    #[doc(hidden)]
-    pub fn __filesystem_mount(&self) -> Option<(String, std::path::PathBuf)> {
-        self.inner.assets.filesystem_mount.clone()
-    }
 }
 
 #[derive(Clone)]

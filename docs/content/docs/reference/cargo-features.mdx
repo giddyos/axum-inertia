@@ -15,7 +15,7 @@ inertia-axum = "=1.0.0-alpha.1"
 | Feature | Default | Enables | Public effect |
 | --- | ---: | --- | --- |
 | `macros` | Yes | `inertia-axum-macros` | Reexports the `InertiaPage`, `InertiaProps`, and `InertiaForm` derives. The declarative `page!` macro is available without this feature. |
-| `vite` | Yes | `sha2`, `tower-http` with `fs` | Adds `InertiaApp::vite`, Vite builder methods, manifest hashing, static build serving, `StaticAssetService`, and `AssetProvider::static_service`. |
+| `vite` | Yes | `sha2`, `mime_guess` | Adds `InertiaApp::vite`, Vite builder methods, manifest hashing, and framework-neutral filesystem serving through `DirectoryAssetSource`. |
 | `askama` | No | Askama 0.16 with `config`, `derive`, and `std` | Reexports `askama`; adds `AskamaRoot`, `AskamaRootContext`, and `.askama_root(...)`. |
 | `cookies` | No | `cookie` with `secure`, `sha2` | Adds encrypted `CookieTransient` storage and works independently of `vite`. |
 | `tower-sessions` | No | `tower-sessions` | Adds `TowerSessionTransient` and the Tower Session projection on `TransientRequest`. |

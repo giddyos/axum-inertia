@@ -1,8 +1,10 @@
 //! Asset providers and convention-based Vite startup configuration.
 
 use crate::root::AssetTags;
+use bytes::Bytes;
 #[cfg(feature = "vite")]
 use http::Uri;
+use http::{HeaderMap, Method, StatusCode};
 #[cfg(feature = "vite")]
 use serde::Deserialize;
 use serde::Serialize;
@@ -16,6 +18,12 @@ use std::{
     fs,
     path::PathBuf,
 };
+
+#[cfg(feature = "filesystem-assets")]
+mod directory;
+
+#[cfg(feature = "filesystem-assets")]
+pub use directory::DirectoryAssetSource;
 
 /// A scalar Inertia asset version retaining its JSON number-or-string form.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -75,14 +83,57 @@ impl<'a> AssetContext<'a> {
     }
 }
 
+/// Protocol-relevant information for a static asset lookup.
+#[derive(Clone, Copy, Debug)]
+pub struct AssetRequest<'a> {
+    /// HTTP request method.
+    pub method: &'a Method,
+    /// Public-path-relative asset path.
+    pub path: &'a str,
+    /// Request headers used for conditional responses.
+    pub headers: &'a HeaderMap,
+}
+
+/// Framework-neutral asset response body.
+#[derive(Clone, Debug)]
+pub enum AssetBody {
+    /// No response body, including `HEAD` and `304` responses.
+    Empty,
+    /// Runtime-owned asset bytes.
+    Bytes(Bytes),
+    /// Compile-time embedded asset bytes.
+    Static(&'static [u8]),
+}
+
+/// Framework-neutral static asset response.
+#[derive(Clone, Debug)]
+pub struct AssetResponse {
+    /// HTTP response status.
+    pub status: StatusCode,
+    /// HTTP response headers.
+    pub headers: HeaderMap,
+    /// Static response body.
+    pub body: AssetBody,
+}
+
+/// Synchronous framework-neutral asset lookup.
+pub trait AssetSource: Send + Sync + 'static {
+    /// Returns an explicit asset response or `None` when the path is absent.
+    fn get(&self, request: AssetRequest<'_>) -> Option<AssetResponse>;
+}
+
 /// Asset provider failure.
 pub type AssetError = Box<dyn Error + Send + Sync>;
 /// Advanced interface for non-Vite asset pipelines.
 pub trait AssetProvider: Clone + Send + Sync + 'static {
     /// Returns the scalar deployment version.
-    fn version(&self) -> &AssetVersion;
+    fn version(&self) -> AssetVersion;
     /// Renders safe script/style markup.
     fn render_tags(&self, context: AssetContext<'_>) -> Result<AssetTags, AssetError>;
+    /// Returns the optional source used by framework adapters to serve assets.
+    fn source(&self) -> Option<Arc<dyn AssetSource>> {
+        None
+    }
 }
 
 pub(crate) trait ErasedAssetProvider: Send + Sync {
@@ -90,35 +141,48 @@ pub(crate) trait ErasedAssetProvider: Send + Sync {
 }
 
 impl<P: AssetProvider> ErasedAssetProvider for P {
-    fn build_runtime(&self, _public_path: &str) -> Result<AssetRuntime, ConfigError> {
+    fn build_runtime(&self, public_path: &str) -> Result<AssetRuntime, ConfigError> {
         let tags = self.render_tags(AssetContext::default()).map_err(|error| {
             ConfigError::new(format!(
                 "inertia-core asset configuration error\n\nCould not render asset tags: {error}"
             ))
         })?;
-        let version = self.version().clone();
+        let version = self.version();
         let header_version = Arc::from(version.header_value().into_owned());
         Ok(AssetRuntime {
             version: Some(version),
             header_version: Some(header_version),
             tags,
-            #[cfg(feature = "vite")]
-            filesystem_mount: None,
+            public_path: normalize_public_path(public_path)?,
+            source: self.source(),
             #[cfg(all(feature = "vite", feature = "ssr"))]
             vite_dev_server: None,
         })
     }
 }
 
+/// Immutable application asset state shared with framework adapters.
 #[derive(Clone)]
-pub(crate) struct AssetRuntime {
+pub struct AssetRuntime {
     pub(crate) version: Option<AssetVersion>,
     pub(crate) header_version: Option<Arc<str>>,
     pub(crate) tags: AssetTags,
-    #[cfg(feature = "vite")]
-    pub(crate) filesystem_mount: Option<(String, PathBuf)>,
+    pub(crate) public_path: Arc<str>,
+    pub(crate) source: Option<Arc<dyn AssetSource>>,
     #[cfg(all(feature = "vite", feature = "ssr"))]
     pub(crate) vite_dev_server: Option<Arc<str>>,
+}
+
+impl AssetRuntime {
+    /// Returns the optional framework-neutral asset source.
+    pub fn source(&self) -> Option<&Arc<dyn AssetSource>> {
+        self.source.as_ref()
+    }
+
+    /// Returns the normalized public URL path for assets.
+    pub fn public_path(&self) -> &str {
+        &self.public_path
+    }
 }
 
 impl Default for AssetRuntime {
@@ -127,8 +191,8 @@ impl Default for AssetRuntime {
             version: None,
             header_version: None,
             tags: AssetTags::empty(),
-            #[cfg(feature = "vite")]
-            filesystem_mount: None,
+            public_path: Arc::from("/build"),
+            source: None,
             #[cfg(all(feature = "vite", feature = "ssr"))]
             vite_dev_server: None,
         }
@@ -150,6 +214,28 @@ impl fmt::Display for ConfigError {
     }
 }
 impl Error for ConfigError {}
+
+pub(crate) fn normalize_public_path(path: &str) -> Result<Arc<str>, ConfigError> {
+    let normalized = if path == "/" {
+        path
+    } else {
+        path.trim_end_matches('/')
+    };
+    let safe_segments = normalized.strip_prefix('/').is_some_and(|rest| {
+        !rest.is_empty()
+            && rest
+                .split('/')
+                .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
+    });
+    if normalized != "/"
+        && (!safe_segments || normalized.contains(['"', '<', '>', '&', '\\', '{', '}', '?', '#']))
+    {
+        return Err(ConfigError::new(format!(
+            "inertia-core asset configuration error\n\nPublic path \"{path}\" must be an absolute, HTML-safe URL path without traversal segments"
+        )));
+    }
+    Ok(Arc::from(normalized))
+}
 
 #[derive(Clone, Debug)]
 #[cfg(feature = "vite")]
@@ -203,11 +289,13 @@ impl ViteConfig {
         let tags = AssetTags::new(format!(
             "<script type=\"module\" src=\"{base}/@vite/client\"></script><script type=\"module\" src=\"{base}/{entry}\"></script>"
         ));
+        let public_path = normalize_public_path(&self.public_path)?;
         Ok(AssetRuntime {
             version: None,
             header_version: None,
             tags,
-            filesystem_mount: None,
+            public_path,
+            source: None,
             #[cfg(feature = "ssr")]
             vite_dev_server: Some(Arc::from(url.trim_end_matches('/'))),
         })
@@ -243,13 +331,12 @@ impl ViteConfig {
         let mut css = BTreeSet::new();
         resolve_manifest(&key, &manifest, &mut visited, &mut files, &mut css)?;
         let entry_file = &manifest[&key].file;
-        let prefix = self.public_path.trim_end_matches('/');
-        if !prefix.starts_with('/') || prefix.contains(['"', '<', '>', '&']) {
-            return Err(ConfigError::new(format!(
-                "inertia-core Vite configuration error\n\nPublic path \"{}\" must be an absolute, HTML-safe URL path",
-                self.public_path
-            )));
-        }
+        let public_path = normalize_public_path(&self.public_path)?;
+        let prefix = if public_path.as_ref() == "/" {
+            ""
+        } else {
+            public_path.as_ref()
+        };
         let mut tags = String::new();
         for path in &css {
             let path = escape_attribute(path);
@@ -282,11 +369,18 @@ impl ViteConfig {
             .map(char::from)
             .collect::<String>();
         let header_version: Arc<str> = Arc::from(version.as_str());
+        let source = DirectoryAssetSource::new(&build_dir).map_err(|error| {
+            ConfigError::new(format!(
+                "inertia-core Vite configuration error\n\nCould not prepare asset directory {}: {error}",
+                build_dir.display()
+            ))
+        })?;
         Ok(AssetRuntime {
             version: Some(AssetVersion::from(version)),
             header_version: Some(header_version),
             tags: AssetTags::new(tags),
-            filesystem_mount: Some((self.public_path.clone(), build_dir)),
+            public_path,
+            source: Some(Arc::new(source)),
             #[cfg(feature = "ssr")]
             vite_dev_server: None,
         })
@@ -324,4 +418,77 @@ fn resolve_manifest(
         resolve_manifest(import, manifest, visited, files, css)?;
     }
     Ok(())
+}
+
+#[cfg(all(test, feature = "vite"))]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Fixture(PathBuf);
+
+    impl Fixture {
+        fn new() -> Self {
+            static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "inertia-vite-assets-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir_all(path.join("dist/.vite")).unwrap();
+            fs::write(
+                path.join("dist/.vite/manifest.json"),
+                r#"{
+                    "src/main.ts": {
+                        "file": "assets/main-12345678.js",
+                        "css": ["assets/z.css", "assets/a.css"],
+                        "imports": ["_z.js", "_a.js"]
+                    },
+                    "_z.js": {"file": "assets/z-12345678.js"},
+                    "_a.js": {"file": "assets/a-12345678.js"}
+                }"#,
+            )
+            .unwrap();
+            Self(path)
+        }
+
+        fn config(&self) -> ViteConfig {
+            ViteConfig {
+                root: self.0.clone(),
+                entry: "src/main.ts".into(),
+                build_dir: "dist".into(),
+                public_path: "/build".to_owned(),
+                dev_server: None,
+            }
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn manifest_output_order_and_version_are_deterministic() {
+        let fixture = Fixture::new();
+        let first = fixture.config().build().unwrap();
+        let second = fixture.config().build().unwrap();
+        assert_eq!(first.version, second.version);
+        assert_eq!(first.header_version, second.header_version);
+        assert_eq!(first.tags.as_str(), second.tags.as_str());
+
+        let tags = first.tags.as_str();
+        let css_a = tags.find("/build/assets/a.css").unwrap();
+        let css_z = tags.find("/build/assets/z.css").unwrap();
+        let import_z = tags.find("/build/assets/z-12345678.js").unwrap();
+        let import_a = tags.find("/build/assets/a-12345678.js").unwrap();
+        let entry = tags.find("/build/assets/main-12345678.js").unwrap();
+        assert!(css_a < css_z);
+        assert!(css_z < import_z);
+        assert!(import_z < import_a);
+        assert!(import_a < entry);
+        assert!(first.source().is_some());
+        assert_eq!(first.public_path(), "/build");
+    }
 }

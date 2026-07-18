@@ -27,14 +27,13 @@ serde_json.workspace = true
 tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
-tower-http = { version = "0.7", features = ["fs"], optional = true }
 tower-sessions = { version = "0.14", default-features = false, optional = true }
 
 [features]
 default = ["macros", "vite", "typegen"]
 askama = ["inertia-core/askama"]
 macros = ["inertia-core/macros"]
-vite = ["inertia-core/vite", "dep:tower-http"]
+vite = ["inertia-core/vite", "inertia-core/filesystem-assets"]
 cookies = ["inertia-core/cookies"]
 tower-sessions = ["inertia-core/tower-sessions", "dep:tower-sessions"]
 garde = ["inertia-core/garde"]
