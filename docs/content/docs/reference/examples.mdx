@@ -11,6 +11,8 @@ Choose the smallest example that demonstrates the behavior you need. Browser exa
 | --- | --- | --- | --- |
 | [`axum-minimal`](https://github.com/giddyos/inertia-axum/tree/main/examples/axum-minimal) | Defaults: `macros`, `vite` | Smallest router, Axum state, `page!`, marker root, production manifest, initial HTML and JSON visits. | `cargo run -p axum-minimal` |
 | [`axum-embedded`](https://github.com/giddyos/inertia-axum/tree/main/examples/axum-embedded) | Defaults plus `inertia-embed` | Vite in debug mode and a release executable containing the complete production frontend. | Build its `frontend`, then `cargo run --release -p axum-embedded`. |
+| [`actix-minimal`](https://github.com/giddyos/inertia-axum/tree/main/examples/actix-minimal) | `inertia-actix` defaults | Explicit Actix app data, middleware, assets, and a direct `page!` response. | `cargo run -p actix-minimal` |
+| [`actix-embedded`](https://github.com/giddyos/inertia-axum/tree/main/examples/actix-embedded) | `inertia-actix` defaults plus `inertia-embed` | Actix with Vite in debug mode and compile-time assets in release mode. | Build its `frontend`, then `cargo run --release -p actix-embedded`. |
 | [`axum-askama`](https://github.com/giddyos/inertia-axum/tree/main/examples/axum-askama) | Defaults plus `askama` | Typed application root compiled by Askama with a minimal Vue page. | Build `examples/axum-askama/frontend`, then `cargo run -p axum-askama`. |
 | [`axum-svelte`](https://github.com/giddyos/inertia-axum/tree/main/examples/axum-svelte) | Defaults plus `ssr` | Svelte 5, managed production SSR, deferred UI, validation, route opt-out, and conditional SSR. | Build `svelte-app`, then `cargo run -p axum-svelte`. |
 | [`axum-react`](https://github.com/giddyos/inertia-axum/tree/main/examples/axum-react) | Defaults plus `ssr` | React 19 version of the same production SSR, deferred, form, and route-policy contract. | Build `react-app`, then `cargo run -p axum-react`. |
@@ -35,6 +37,9 @@ These three crates return real pending page responses through a configured Axum 
 - **Copy `axum-minimal` for:** the first Axum/Inertia request and smallest production-manifest server.
 - **Copy `axum-embedded` for:** a release executable that serves its frontend
   without runtime files.
+- **Copy `actix-minimal` for:** the explicit Actix Web installation shape.
+- **Copy `actix-embedded` for:** the same self-contained release model on
+  Actix Web.
 - **Copy a framework browser example for:** maintained Svelte, React, or Vue client and hydration setup.
 - **Copy `todo` for:** typed handlers, deferred props, redirect validation, and `TestApp` tests.
 - **Copy the matching framework example for:** production SSR and browser hydration.

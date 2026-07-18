@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "installation",
+    "actix-web",
     "quick-start",
     "frontend-setup",
     "project-structure"

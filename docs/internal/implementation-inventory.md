@@ -70,6 +70,8 @@ Private documentation-planning inventory for `1.0.0-alpha.1`, audited against th
 | Prelude and API groupings | `prelude`; `advanced`; `compat`; conditional reexports | Corresponding item features | `crates/inertia-axum/src/lib.rs`; `src/prelude.rs` | Workspace all-feature rustdoc build | All examples use `prelude` | `/docs/reference`; `/docs/advanced/compatibility-apis` |
 | Protocol support and security | Full HTML/JSON negotiation, Vary, script-safe JSON, URI validation, not-found passthrough; Precognition absent | SSR row requires `ssr` | `src/engine.rs`; `src/html/serializer.rs`; `src/axum/response_headers.rs` | `tests/protocol_v3/*`; snapshots; security tests | All examples | `/docs/advanced/protocol-behavior`; `/docs/reference/protocol-support` |
 | `axum-minimal` example | Unpublished workspace binary | Defaults (`macros`, `vite`) | `examples/axum-minimal` | Workspace checks | Itself | `/docs/reference/examples`; getting started |
+| `actix-minimal` example | Unpublished Actix Web binary | Defaults (`macros`, `vite`, `typegen`) | `examples/actix-minimal` | Workspace checks | Itself | `/docs/reference/examples`; `/docs/getting-started/actix-web` |
+| `actix-embedded` example | Unpublished self-contained Actix Web binary | Defaults plus `inertia-embed` | `examples/actix-embedded` | Debug and release checks | Itself | `/docs/reference/examples`; `/docs/getting-started/actix-web` |
 | `axum-askama` example | Unpublished workspace binary | Defaults plus `askama` | `examples/axum-askama` | Crate and root Askama tests | Itself | `/docs/reference/examples`; `/docs/recipes/custom-root-document` |
 | `axum-svelte` example | Unpublished workspace library/binary | Defaults plus `ssr` | `examples/axum-svelte` | `tests/production_ssr.rs`; live SSR script | Itself | `/docs/frontend/svelte`; `/docs/reference/examples` |
 | `axum-react` example | Unpublished workspace library/binary | Defaults plus `ssr` | `examples/axum-react` | `tests/production_ssr.rs`; live SSR script | Itself | `/docs/frontend/react`; `/docs/reference/examples` |
@@ -80,10 +82,14 @@ Private documentation-planning inventory for `1.0.0-alpha.1`, audited against th
 
 ## Cargo feature completeness
 
-The main crate features are `default = [macros, vite]`, `askama`, `macros`, `vite`, `cookies`, `tower-sessions`, `garde`, `validator`, `test-support`, and `ssr`. `garde`, `validator`, and `test-support` are marker features with no runtime dependency or `cfg`-gated public API. `cookies` independently enables `cookie` and `sha2`. Other workspace crates expose no Cargo features.
+The Axum and Actix adapter defaults are `macros`, `vite`, and `typegen`.
+Both forward shared core capabilities and type-generation ecosystem features;
+Axum additionally exposes `tower-sessions` and route-local SSR policy.
+`garde`, `validator`, and `test-support` are marker features with no runtime
+dependency or `cfg`-gated public API.
 
 ## Public export categories
 
-All root export categories have a destination above: application/layer, assets, roots, dynamic and typed pages, prop models/helpers, page metadata, redirects, request contexts and headers, sharing, forms, transient storage, SSR, Axum compatibility, errors, and macro-support pending types. The separate test crate's eight exported structs, all three derives, all three CLI commands, and all eight maintained examples are likewise assigned.
+All root export categories have a destination above: application/layer, assets, roots, dynamic and typed pages, prop models/helpers, page metadata, redirects, request contexts and headers, sharing, forms, transient storage, SSR, Axum compatibility, errors, and macro-support pending types. The separate test crate's public clients and adapter harnesses, all three derives, all three CLI commands, and maintained examples are likewise assigned.
 
 Hidden `__private`, `__inertia_page_props!`, `Props`, `DynamicPropAdapter`, `IntoPendingProp`, `serialize_old_input`, and typed pending constructors exist for generated code. They are not intended as user extension points and are documented only through the public macro behavior.

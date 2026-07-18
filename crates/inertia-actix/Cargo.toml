@@ -1,0 +1,53 @@
+[package]
+name = "inertia-actix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Actix Web adapter for the Inertia.js Rust runtime"
+keywords = ["inertia", "web", "framework", "actix"]
+categories = ["web-programming"]
+readme = "../../README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+actix-web.workspace = true
+bytes.workspace = true
+futures-util = "0.3"
+http.workspace = true
+inertia-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[features]
+default = ["macros", "vite", "typegen"]
+askama = ["inertia-core/askama"]
+macros = ["inertia-core/macros"]
+vite = ["inertia-core/vite", "inertia-core/filesystem-assets"]
+cookies = ["inertia-core/cookies"]
+garde = ["inertia-core/garde"]
+validator = ["inertia-core/validator"]
+test-support = ["inertia-core/test-support"]
+typegen = ["inertia-core/typegen"]
+typegen-serde-json = ["inertia-core/typegen-serde-json"]
+typegen-uuid = ["inertia-core/typegen-uuid"]
+typegen-chrono = ["inertia-core/typegen-chrono"]
+typegen-jiff = ["inertia-core/typegen-jiff"]
+typegen-url = ["inertia-core/typegen-url"]
+typegen-bytes = ["inertia-core/typegen-bytes"]
+typegen-indexmap = ["inertia-core/typegen-indexmap"]
+typegen-semver = ["inertia-core/typegen-semver"]
+typegen-bigdecimal = ["inertia-core/typegen-bigdecimal"]
+typegen-smol-str = ["inertia-core/typegen-smol-str"]
+typegen-tokio = ["inertia-core/typegen-tokio"]
+ssr = ["inertia-core/ssr"]
+
+[dev-dependencies]
+actix-web = { workspace = true, features = ["macros"] }
+inertia-embed.workspace = true
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }

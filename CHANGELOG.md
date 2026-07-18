@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Framework-neutral `inertia-core` request, response, asset, transient, prop,
+  and SSR runtime used by every adapter.
+- `inertia-actix`, with safe HTTP-version boundary conversion, asynchronous
+  rendering, middleware finalization, forms, redirects, and generic assets.
+- `inertia-embed` and `embed_frontend!` for deterministic compile-time Vite
+  manifests and self-contained release binaries.
+- Shared Axum/Actix adapter conformance coverage and minimal and embedded Actix
+  examples.
+
 ## 1.0.0-alpha.1 - 2026-07-10
 
 ### Added

@@ -13,8 +13,15 @@ description = "Shared conformance and testing utilities for Inertia Rust adapter
 workspace = true
 
 [dependencies]
+actix-web.workspace = true
+async-trait = "0.1"
 axum = { workspace = true, features = ["http1", "tokio"] }
+bytes.workspace = true
+futures-util = "0.3"
+http.workspace = true
+inertia-actix = { workspace = true, features = ["test-support", "ssr"] }
 inertia-axum = { workspace = true, features = ["test-support", "ssr"] }
+inertia-embed.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tower = { workspace = true, features = ["util"] }

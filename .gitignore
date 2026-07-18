@@ -7,6 +7,7 @@ docs/next-env.d.ts
 docs/*.tsbuildinfo
 **/*.snap.new
 crates/cargo-inertia/tests/fixtures/*/Cargo.lock
+docs/snippets/quick-start-server/Cargo.lock
 examples/axum-*/**/node_modules/
 examples/axum-*/**/dist/
 !examples/axum-embedded/frontend/dist/
@@ -14,3 +15,7 @@ examples/axum-*/**/dist/
 examples/axum-*/**/playwright-report/
 examples/axum-*/**/test-results/
 examples/axum-*/public/build/
+examples/actix-*/**/node_modules/
+examples/actix-*/**/dist/
+!examples/actix-embedded/frontend/dist/
+!examples/actix-embedded/frontend/dist/**

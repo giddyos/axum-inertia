@@ -24,3 +24,8 @@ fn derives_compile_with_direct_core_only() {
 fn derives_compile_with_axum_adapter_only() {
     check_fixture("axum-only");
 }
+
+#[test]
+fn derives_compile_with_actix_adapter_only() {
+    check_fixture("actix-only");
+}

@@ -84,13 +84,17 @@ where
                 .extensions()
                 .get::<tower_sessions::Session>()
                 .cloned();
+            #[cfg(feature = "tower-sessions")]
             let prepared = app
-                .prepare_request(
+                .prepare_request_with_tower_session(
                     request_parts,
                     Some(request.extensions()),
-                    #[cfg(feature = "tower-sessions")]
                     session,
                 )
+                .await;
+            #[cfg(not(feature = "tower-sessions"))]
+            let prepared = app
+                .prepare_request(request_parts, Some(request.extensions()))
                 .await;
             let prepared = match prepared {
                 Ok(inertia_core::VersionCheck::Proceed(prepared)) => *prepared,

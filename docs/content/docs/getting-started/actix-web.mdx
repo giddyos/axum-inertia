@@ -1,0 +1,76 @@
+---
+title: Actix Web
+description: Install the Actix adapter, render asynchronously, and mount framework-neutral assets.
+keywords:
+  - Actix Web
+  - inertia-actix
+  - middleware
+---
+
+## Configure the adapter
+
+`inertia-actix` exposes Actix-owned extractors, responders, middleware, and
+route configuration over the same protocol runtime used by `inertia-axum`.
+Pending props remain asynchronous.
+
+```rust title="src/main.rs"
+use actix_web::{App, HttpServer, web};
+use inertia_actix::{
+    Inertia, InertiaApp, InertiaMiddleware, Result as InertiaResult, assets,
+};
+
+async fn index(inertia: Inertia) -> InertiaResult {
+    inertia
+        .render(
+            "Home",
+            serde_json::json!({
+                "message": "Hello from Actix Web",
+            }),
+        )
+        .await
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let inertia = InertiaApp::vite("frontend")
+        .build()
+        .map_err(std::io::Error::other)?;
+
+    HttpServer::new(move || {
+        App::new()
+            .route("/", web::get().to(index))
+            .app_data(web::Data::new(inertia.clone()))
+            .wrap(InertiaMiddleware::new(inertia.clone()))
+            .configure(assets(inertia.clone()))
+    })
+    .bind(("127.0.0.1", 3000))?
+    .run()
+    .await
+}
+```
+
+Actix middleware changes the concrete `App<T>` service type, so installation is
+intentionally explicit. `app_data` makes `InertiaApp` available to the
+extractor, `InertiaMiddleware` performs pre-handler preparation and
+post-handler finalization, and `assets(...)` mounts the configured neutral
+source. `configure(inertia.clone())` can replace the separate `app_data` and
+`assets` calls:
+
+```rust title="Alternative installation"
+use inertia_actix::configure;
+
+App::new()
+    .route("/", web::get().to(index))
+    .wrap(InertiaMiddleware::new(inertia.clone()))
+    .configure(configure(inertia.clone()))
+```
+
+Direct `DynamicPage`, `Redirect`, `Location`, and validated-form responders
+also work. Middleware recognizes their request-local pending response and
+awaits core finalization after the handler returns; it never blocks an async
+prop.
+
+For a release binary that contains its Vite frontend, copy
+[`actix-embedded`](https://github.com/giddyos/inertia-axum/tree/main/examples/actix-embedded).
+The debug build uses a Vite development server, while the release build uses
+`embed_frontend!` and serves `/build/{path:.*}` from the executable.

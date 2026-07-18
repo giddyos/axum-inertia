@@ -205,6 +205,32 @@ impl InertiaApp {
         &self,
         request: RequestParts,
         extensions: Option<&Extensions>,
+    ) -> Result<VersionCheck, CoreError> {
+        self.prepare_request_inner(
+            request,
+            extensions,
+            #[cfg(feature = "tower-sessions")]
+            None,
+        )
+        .await
+    }
+
+    /// Parses and prepares a request with an optional projected Tower session.
+    #[cfg(feature = "tower-sessions")]
+    pub async fn prepare_request_with_tower_session(
+        &self,
+        request: RequestParts,
+        extensions: Option<&Extensions>,
+        session: Option<tower_sessions::Session>,
+    ) -> Result<VersionCheck, CoreError> {
+        self.prepare_request_inner(request, extensions, session)
+            .await
+    }
+
+    async fn prepare_request_inner(
+        &self,
+        request: RequestParts,
+        extensions: Option<&Extensions>,
         #[cfg(feature = "tower-sessions")] session: Option<tower_sessions::Session>,
     ) -> Result<VersionCheck, CoreError> {
         let visit = Visit::from_request(&request);

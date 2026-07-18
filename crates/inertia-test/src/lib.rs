@@ -1,11 +1,16 @@
 //! Stateful in-process assertions for inertia-axum applications.
 
+mod adapter;
 mod app;
 mod page;
 mod request;
 mod response;
 mod ssr;
 
+pub use adapter::{
+    ActixHarness, AdapterHarness, AdapterRequest, AdapterResponse, AxumHarness,
+    run_adapter_conformance,
+};
 pub use app::TestApp;
 pub use page::TestPage;
 pub use request::TestRequest;

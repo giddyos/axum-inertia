@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/inertia-core",
     "crates/inertia-axum",
+    "crates/inertia-actix",
     "crates/inertia-embed",
     "crates/inertia-embed/macros",
     "crates/inertia-macros",
@@ -12,6 +13,8 @@ members = [
     "crates/inertia-axum-typegen-spike",
     "examples/axum-minimal",
     "examples/axum-embedded",
+    "examples/actix-minimal",
+    "examples/actix-embedded",
     "examples/axum-askama",
     "examples/axum-svelte",
     "examples/axum-react",
@@ -23,6 +26,7 @@ members = [
 default-members = [
     "crates/inertia-core",
     "crates/inertia-axum",
+    "crates/inertia-actix",
     "crates/inertia-embed",
     "crates/inertia-macros",
     "crates/inertia-test",
@@ -39,6 +43,7 @@ homepage = "https://github.com/giddyos/inertia-axum"
 authors = ["inertia-rs contributors"]
 
 [workspace.dependencies]
+actix-web = { version = "4.14.0", default-features = false, features = ["macros"] }
 askama = { version = "0.16", default-features = false, features = ["config", "derive", "std"] }
 axum = { version = "0.8.9", default-features = false }
 bytes = { version = "1", default-features = false }
@@ -57,6 +62,7 @@ tower = { version = "0.5.3", default-features = false }
 syn = { version = "2", features = ["full", "extra-traits"] }
 inertia-core = { path = "crates/inertia-core", version = "1.0.0-alpha.1" }
 inertia-axum = { path = "crates/inertia-axum", version = "1.0.0-alpha.1" }
+inertia-actix = { path = "crates/inertia-actix", version = "1.0.0-alpha.1" }
 inertia-embed = { path = "crates/inertia-embed", version = "1.0.0-alpha.1" }
 inertia-macros = { path = "crates/inertia-macros", version = "1.0.0-alpha.1" }
 inertia-test = { path = "crates/inertia-test", version = "1.0.0-alpha.1" }

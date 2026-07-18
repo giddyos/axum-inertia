@@ -1,0 +1,13 @@
+[package]
+name = "actix-minimal"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+actix-web.workspace = true
+inertia-actix.workspace = true
