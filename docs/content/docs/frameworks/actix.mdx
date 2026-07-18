@@ -1,0 +1,69 @@
+---
+title: Actix Web
+description: Install the Actix Web adapter, await rendering, and mount middleware plus asset services.
+---
+
+Actix Web uses `inertia-actix`, which translates Actix requests and responses at
+the adapter boundary while sharing protocol, prop, asset, transient-data, and
+SSR behavior with the other adapters.
+
+## Install and configure services
+
+```toml title="Cargo.toml"
+[dependencies]
+actix-web = "4.14.0"
+inertia-actix = "1.0.0-alpha.1"
+serde_json = "1"
+```
+
+Actix handlers extract `Inertia` and await finalization. Install the same
+`InertiaApp` as app data, middleware, and the asset-service configuration:
+
+```rust title="src/main.rs"
+use actix_web::{App, HttpServer, web};
+use inertia_actix::{
+    Inertia, InertiaApp, InertiaMiddleware, Result as InertiaResult, assets,
+};
+
+async fn home(inertia: Inertia) -> InertiaResult {
+    inertia
+        .render("Home", serde_json::json!({ "greeting": "Hello" }))
+        .await
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let inertia = InertiaApp::vite("frontend")
+        .build()
+        .map_err(std::io::Error::other)?;
+
+    HttpServer::new(move || {
+        App::new()
+            .route("/", web::get().to(home))
+            .app_data(web::Data::new(inertia.clone()))
+            .wrap(InertiaMiddleware::new(inertia.clone()))
+            .configure(assets(inertia.clone()))
+    })
+    .bind(("127.0.0.1", 3000))?
+    .run()
+    .await
+}
+```
+
+The middleware preserves ordinary non-Inertia responses and finalizes direct
+pending pages. The extractor form is preferred when a handler needs an explicit
+redirect, location response, or typed render result.
+
+## Development and production
+
+Set `VITE_DEV_SERVER_URL=http://localhost:5173` in development. With the
+variable absent, `InertiaApp::vite` reads and serves the production directory.
+For a self-contained release, switch under `#[cfg(not(debug_assertions))]` to an
+`EmbeddedFrontend`; `assets(...)` mounts either source through the same runtime
+public path.
+
+Actix must see the public prefix after any reverse-proxy rewrite. Preserve
+`X-Inertia`, partial-data, version, and purpose headers in both directions, and
+do not cache page JSON as an immutable asset. Shared SSR backends are available
+through the `ssr` feature; embedding browser assets does not embed or execute a
+Node renderer.

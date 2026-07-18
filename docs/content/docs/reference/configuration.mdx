@@ -3,16 +3,13 @@ title: Configuration
 description: Constructors, builder methods, lifecycle rules, defaults, precedence, and configuration errors.
 ---
 
-An `InertiaApp` is immutable application-wide configuration installed around an Axum router. Build it once, then pass it to `.inertia(...)`.
+An `InertiaApp` is immutable application-wide configuration installed through
+the selected Axum, Actix Web, or Rocket adapter. Build it once, then clone it
+where that adapter's installation requires.
 
-```rust title="src/main.rs"
-use axum::Router;
-use inertia_axum::prelude::*;
-
-fn install(router: Router, inertia: InertiaApp) -> Router {
-    router.inertia(inertia)
-}
-```
+Axum uses `RouterInertiaExt`, Actix Web installs app data plus middleware and
+asset services, and Rocket attaches `InertiaFairing`. See
+[Server frameworks](/docs/frameworks/axum).
 
 ## Choose a constructor
 
@@ -80,6 +77,29 @@ With the `ssr` feature compiled but no `.ssr(...)` call, either lifecycle works.
 Development emits `@vite/client` and entry scripts, with no asset version or static mount. Production resolves imported chunks and CSS from the client manifest, hashes the resolved filenames into the asset version, and exposes the build directory through the framework-neutral `DirectoryAssetSource`.
 
 See [Vite and assets](/docs/guides/vite-and-assets) for deployment setup.
+
+## `inertia.toml` build configuration
+
+`cargo inertia build` reads this independent CLI configuration from the located
+Cargo workspace root:
+
+```toml title="inertia.toml"
+[frontend]
+root = "frontend"
+build-command = ["pnpm", "run", "build"]
+build-dir = "frontend/dist"
+manifest = "frontend/dist/.vite/manifest.json"
+entry = "src/main.ts"
+public-path = "/build"
+
+[rust]
+package = "server"
+binary = "server"
+```
+
+Every configured filesystem path is relative to and contained by the workspace
+root. `build-command` is an argument array, never a shell string. The
+`public-path`, entry, build directory, and macro declaration must agree.
 
 ## SSR defaults
 

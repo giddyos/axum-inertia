@@ -3,6 +3,7 @@
 use actix_web::{App, HttpServer, web};
 use inertia_actix::{Inertia, InertiaApp, InertiaMiddleware, Result as InertiaResult, assets};
 use serde::Serialize;
+use std::io::Write as _;
 
 #[cfg(not(debug_assertions))]
 use inertia_embed::{EmbeddedFrontend, embed_frontend};
@@ -50,14 +51,20 @@ async fn main() -> std::io::Result<()> {
     let inertia = inertia().map_err(std::io::Error::other)?;
     let address = std::env::var("ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .route("/", web::get().to(index))
             .app_data(web::Data::new(inertia.clone()))
             .wrap(InertiaMiddleware::new(inertia.clone()))
             .configure(assets(inertia.clone()))
     })
-    .bind(address)?
-    .run()
-    .await
+    .bind(address)?;
+    let bound = server
+        .addrs()
+        .first()
+        .copied()
+        .ok_or_else(|| std::io::Error::other("Actix Web did not bind a listener"))?;
+    println!("LISTENING {bound}");
+    std::io::stdout().flush()?;
+    server.run().await
 }

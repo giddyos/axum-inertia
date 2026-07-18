@@ -2,7 +2,28 @@
 set -euo pipefail
 
 repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-frontend="$repository/examples/axum-embedded/frontend"
+if [[ "$#" -eq 0 ]]; then
+  for example in axum-embedded actix-embedded rocket-embedded; do
+    "$0" "$example"
+  done
+  exit 0
+fi
+
+if [[ "$#" -ne 1 ]]; then
+  echo "usage: $0 [axum-embedded|actix-embedded|rocket-embedded]" >&2
+  exit 2
+fi
+
+example="$1"
+case "$example" in
+  axum-embedded | actix-embedded | rocket-embedded) ;;
+  *)
+    echo "unsupported embedded example: $example" >&2
+    exit 2
+    ;;
+esac
+
+frontend="$repository/examples/$example/frontend"
 dist="$frontend/dist"
 target="${CARGO_TARGET_DIR:-$repository/target}"
 isolated="$(mktemp -d)"
@@ -23,15 +44,15 @@ trap cleanup EXIT
 
 pnpm --dir "$frontend" install --frozen-lockfile --prefer-offline
 pnpm --dir "$frontend" build
-cargo build --locked --release -p axum-embedded
+cargo build --locked --release -p "$example"
 
-cp "$target/release/axum-embedded" "$isolated/axum-embedded"
+cp "$target/release/$example" "$isolated/$example"
 hidden_dist="$frontend/dist.self-contained-test.$$"
 mv "$dist" "$hidden_dist"
 
 (
   cd "$isolated"
-  ADDR=127.0.0.1:0 ./axum-embedded >server.log 2>&1
+  exec env ADDR=127.0.0.1:0 "./$example" >server.log 2>&1
 ) &
 server_pid=$!
 
@@ -49,7 +70,8 @@ for _ in {1..100}; do
 done
 
 if [[ -z "$address" ]]; then
-  echo "axum-embedded did not report a listening address" >&2
+  echo "$example did not report a listening address" >&2
+  cat "$isolated/server.log" >&2
   exit 1
 fi
 
@@ -76,4 +98,4 @@ for asset in "${assets[@]}"; do
 done
 
 [[ ! -e "$dist" ]]
-echo "axum-embedded served its page and ${#assets[@]} assets with the frontend build hidden"
+echo "$example served its page and ${#assets[@]} assets with the frontend build hidden"

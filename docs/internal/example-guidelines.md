@@ -17,5 +17,5 @@ operations such as constructing a router, cloning state, or returning a value.
 
 The recommended documentation path uses `InertiaPage`, `InertiaForm`,
 `Validated<T>`, `Prop<T>`, `defer`, `RouterInertiaExt`, and
-`inertia-axum-test::TestApp`. Low-level protocol types and compatibility APIs
+`inertia-test::TestApp`. Low-level protocol types and compatibility APIs
 belong in reference or migration material rather than the getting-started flow.

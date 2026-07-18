@@ -1,0 +1,47 @@
+//! Generated Rocket + Inertia application.
+
+use inertia_rocket::{Inertia, InertiaApp, InertiaFairing, Result as InertiaResult};
+
+#[cfg(not(debug_assertions))]
+use inertia_embed::{EmbeddedFrontend, embed_frontend};
+
+#[cfg(not(debug_assertions))]
+static FRONTEND: EmbeddedFrontend = embed_frontend! {
+    root: "[[= project.frontend_dir]]/dist",
+    entry: "src/main.ts",
+    public_path: "/build",
+};
+
+#[rocket::get("/")]
+async fn home(inertia: Inertia<'_>) -> InertiaResult {
+    inertia
+        .render(
+            "Home",
+            serde_json::json!({ "greeting": "Hello from Rocket" }),
+        )
+        .await
+}
+
+fn inertia() -> Result<InertiaApp, inertia_rocket::ConfigError> {
+    #[cfg(debug_assertions)]
+    {
+        InertiaApp::vite("[[= project.frontend_dir]]")
+            .entry("src/main.ts")
+            .dev_server("http://localhost:5173")
+            .build()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        InertiaApp::embedded(&FRONTEND).build()
+    }
+}
+
+#[rocket::launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(InertiaFairing::new(
+            inertia().expect("valid Inertia configuration"),
+        ))
+        .mount("/", rocket::routes![home])
+}

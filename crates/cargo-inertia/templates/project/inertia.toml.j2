@@ -1,0 +1,11 @@
+[frontend]
+root = "[[= project.frontend_dir]]"
+build-command = ["[[= package_manager.executable]]", "run", "build"]
+build-dir = "[[= project.frontend_dir]]/dist"
+manifest = "[[= project.frontend_dir]]/dist/.vite/manifest.json"
+entry = "src/main.ts"
+public-path = "/build"
+
+[rust]
+package = "[[= project.package_name]]"
+binary = "[[= project.package_name]]"

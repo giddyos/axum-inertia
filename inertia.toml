@@ -1,0 +1,11 @@
+[frontend]
+root = "examples/axum-embedded/frontend"
+build-command = ["pnpm", "run", "build"]
+build-dir = "examples/axum-embedded/frontend/dist"
+manifest = "examples/axum-embedded/frontend/dist/.vite/manifest.json"
+entry = "src/main.ts"
+public-path = "/build"
+
+[rust]
+package = "axum-embedded"
+binary = "axum-embedded"

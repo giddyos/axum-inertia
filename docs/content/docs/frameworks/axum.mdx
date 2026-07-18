@@ -1,0 +1,62 @@
+---
+title: Axum
+description: Install the Axum adapter, return Inertia pages, and choose development, filesystem, or embedded assets.
+---
+
+Axum applications depend on `inertia-axum`. The adapter re-exports the shared
+core API, derives, and asset types, so application crates do not need to depend
+on `inertia-core`.
+
+## Install and mount the application
+
+```toml title="Cargo.toml"
+[dependencies]
+axum = { version = "0.8.9", features = ["http1", "tokio"] }
+inertia-axum = "1.0.0-alpha.1"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+```
+
+Return a pending page from a normal Axum handler. The adapter layer performs
+request negotiation and asynchronously finalizes selected props:
+
+```rust title="src/main.rs"
+use axum::{Router, routing::get};
+use inertia_axum::{DynamicPage, InertiaApp, RouterInertiaExt};
+
+async fn home() -> DynamicPage {
+    DynamicPage::new("Home").prop("greeting", "Hello from Axum")
+}
+
+fn router(inertia: InertiaApp) -> Router {
+    Router::new()
+        .route("/", get(home))
+        .with_inertia(inertia)
+}
+```
+
+`with_inertia` installs protocol handling and mounts an asset source when the
+application has one. `.inertia(...)` remains a compatibility spelling.
+
+## Select an asset mode
+
+During development, `InertiaApp::vite("frontend")` reads
+`VITE_DEV_SERVER_URL` or a `.dev_server(...)` override and emits Vite client
+tags. Production filesystem mode uses the same constructor with no development
+URL; startup reads `frontend/dist/.vite/manifest.json` and serves the directory
+through the neutral `DirectoryAssetSource`.
+
+For a single-file release, declare `embed_frontend!` only outside debug builds
+and use `InertiaApp::embedded(&FRONTEND)`. The release process, cache behavior,
+and source-map implications are covered in [Embedded frontend](/docs/guides/embedded-frontend).
+
+## Axum-specific capabilities
+
+Axum retains `inertia_axum::prelude`, `inertia_axum::advanced`, and
+`inertia_axum::compat`. Existing practical imports continue to resolve through
+the adapter rather than requiring a core dependency. Axum also exposes
+route-level SSR policy helpers and Tower integration such as Tower Sessions.
+
+At a reverse proxy, preserve the Inertia request headers and `Vary: X-Inertia`.
+Route the configured public path, `/build` by default, to this application unless
+a CDN serves the identical files. Prefix rewriting must agree with
+`.public_path(...)` or the embedded macro's `public_path`.

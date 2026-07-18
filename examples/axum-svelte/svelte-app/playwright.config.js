@@ -24,6 +24,10 @@ export default defineConfig({
       ...process.env,
       ADDR: '127.0.0.1:3012',
     },
+    gracefulShutdown: {
+      signal: 'SIGTERM',
+      timeout: 10_000,
+    },
     url: 'http://127.0.0.1:3012/todos',
     reuseExistingServer: false,
     timeout: 120_000,

@@ -3,6 +3,12 @@
 /// Versions referenced by all embedded templates.
 #[derive(serde::Serialize)]
 pub struct TemplateVersions {
+    pub inertia_rust: &'static str,
+    pub axum: &'static str,
+    pub actix_web: &'static str,
+    pub rocket: &'static str,
+    pub tokio: &'static str,
+    pub serde_json: &'static str,
     pub axios: &'static str,
     pub inertia: &'static str,
     pub vite: &'static str,
@@ -21,6 +27,12 @@ pub struct TemplateVersions {
 }
 /// The pinned versions used by generated projects.
 pub const VERSIONS: TemplateVersions = TemplateVersions {
+    inertia_rust: "1.0.0-alpha.1",
+    axum: "0.8.9",
+    actix_web: "4.14.0",
+    rocket: "0.5.1",
+    tokio: "1",
+    serde_json: "1",
     axios: "1.8.4",
     inertia: "3.6.1",
     vite: "8.1.4",

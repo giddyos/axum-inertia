@@ -1,0 +1,61 @@
+---
+title: Rocket
+description: Install the Rocket adapter, await request-guard rendering, and attach the Inertia fairing.
+---
+
+Rocket applications use `inertia-rocket`. The adapter deliberately converts
+Rocket HTTP types at its boundary and delegates protocol decisions to
+`inertia-core`.
+
+## Install and attach the fairing
+
+```toml title="Cargo.toml"
+[dependencies]
+inertia-rocket = "1.0.0-alpha.1"
+rocket = "0.5.1"
+serde_json = "1"
+```
+
+Use the asynchronous request guard and await rendering. `InertiaFairing`
+installs application state, response finalization, and runtime asset routes:
+
+```rust title="src/main.rs"
+use inertia_rocket::{
+    Inertia, InertiaApp, InertiaFairing, Result as InertiaResult,
+};
+
+#[rocket::get("/")]
+async fn home(inertia: Inertia<'_>) -> InertiaResult {
+    inertia
+        .render("Home", serde_json::json!({ "greeting": "Hello" }))
+        .await
+}
+
+#[rocket::launch]
+fn rocket() -> _ {
+    let inertia = InertiaApp::vite("frontend")
+        .build()
+        .expect("valid Inertia configuration");
+
+    rocket::build()
+        .attach(InertiaFairing::new(inertia))
+        .mount("/", rocket::routes![home])
+}
+```
+
+The request guard performs pre-handler negotiation, including version mismatch
+and malformed protocol-header handling. The response fairing finalizes pending
+pages and preserves ordinary Rocket responses. Missing or duplicate
+installation fails deterministically.
+
+## Assets, proxies, and SSR
+
+Development uses the Vite URL from `.dev_server(...)` or
+`VITE_DEV_SERVER_URL`. Filesystem and embedded production providers are mounted
+at their runtime `public_path`; GET and HEAD are supported, other methods receive
+an explicit 405, and missing assets remain 404.
+
+Configure the same prefix at a reverse proxy and preserve Inertia headers and
+`Vary`. The shared `ssr` feature can render the initial document through a
+managed or external backend. An embedded browser build remains independent of
+that renderer and adds no runtime package-manager requirement.

@@ -16,6 +16,24 @@ All notable changes to this project will be documented in this file.
   manifests and self-contained release binaries.
 - Shared Axum/Actix/Rocket adapter conformance coverage and minimal and embedded
   Actix and Rocket examples.
+- `cargo inertia build` for ordered frontend and Cargo release builds with
+  manifest verification, exact Cargo argument forwarding, and artifact-evidenced
+  executable paths.
+- Axum, Actix Web, and Rocket selection in `cargo inertia init`, including
+  debug Vite and self-contained embedded release templates.
+- Cross-framework self-contained binary CI and framework, embedding, CLI, and
+  deployment documentation.
+
+### Changed
+
+- Renamed the shared testing package from `inertia-axum-test` to
+  `inertia-test`; its Axum application assertions remain available alongside
+  the cross-adapter conformance harness.
+
+### Fixed
+
+- Gracefully terminate production browser examples so managed Node SSR
+  processes cannot leak into later framework test runs.
 
 ## 1.0.0-alpha.1 - 2026-07-10
 

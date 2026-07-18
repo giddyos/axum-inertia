@@ -1,0 +1,82 @@
+---
+title: Embedded frontend
+description: Embed a complete Vite production directory at compile time and serve it through any adapter.
+---
+
+`inertia-embed` turns a completed Vite client build into static Rust data. The
+proc macro reads files only while Rust compiles; the resulting application does
+not parse a manifest, hash bytes, or open the frontend directory at runtime.
+
+## Declare debug and release providers
+
+Build Vite with `manifest: true`, then declare the frontend relative to the Rust
+package manifest:
+
+```rust title="src/main.rs"
+use inertia_axum::InertiaApp;
+
+#[cfg(not(debug_assertions))]
+use inertia_embed::{EmbeddedFrontend, embed_frontend};
+
+#[cfg(not(debug_assertions))]
+static FRONTEND: EmbeddedFrontend = embed_frontend! {
+    root: "frontend/dist",
+    entry: "src/main.ts",
+    public_path: "/build",
+};
+
+fn inertia() -> Result<InertiaApp, inertia_core::ConfigError> {
+    #[cfg(debug_assertions)]
+    {
+        InertiaApp::vite("frontend")
+            .dev_server("http://localhost:5173")
+            .build()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        InertiaApp::embedded(&FRONTEND).build()
+    }
+}
+```
+
+Replace `inertia_axum` with the selected adapter. No direct core dependency is
+necessary. Actix Web and Rocket handlers still await their adapter render
+methods.
+
+## What is embedded
+
+The macro validates `.vite/manifest.json`, follows the configured entry's
+imports, validates output paths, and embeds the entire production directory.
+That includes JavaScript, CSS, fonts, images, and source maps when Vite emits
+them. Disable production source maps in Vite if they must not be publicly
+served.
+
+Asset paths are sorted at compile time and use allocation-free binary search
+after the public prefix is stripped. Bytes remain static, and deployment
+versions plus ETags are generated during compilation. GET, HEAD, conditional
+GET, and explicit 405 behavior are shared by all adapters. Fingerprinted files
+receive immutable caching; other names revalidate. There is no compile-time
+precompression or `Accept-Encoding` negotiation.
+
+## Compile-time safety limits
+
+The macro rejects an absent or malformed manifest, traversal, absolute and
+backslash paths, files outside the root through symlinks, duplicate normalized
+paths, invalid public paths, and missing referenced outputs. Current limits are
+16 MiB for the manifest, 100,000 assets, 512 MiB per asset, and 2 GiB total.
+These are compile-time validation limits, not runtime allocation promises.
+
+Embedding increases the executable by roughly the emitted asset bytes plus
+metadata and linker alignment. Release LTO can affect the final number, so use
+the executable reported by `cargo inertia build` for measurement.
+
+## SSR compatibility
+
+Embedded files are the browser build. Managed or external SSR still needs its
+renderer bundle and Node/service lifecycle at runtime. The initial HTML uses
+the same embedded tags and asset version while SSR is enabled; embedding does
+not execute JavaScript inside the Rust process.
+
+Continue with [Self-contained binary](/docs/guides/self-contained-binary) for
+the coordinated release command and deployment proof.

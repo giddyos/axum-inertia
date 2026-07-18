@@ -21,7 +21,7 @@ Enable SSR in the application dependency and add the test crate:
 inertia-axum = { version = "=1.0.0-alpha.1", features = ["ssr"] }
 
 [dev-dependencies]
-inertia-axum-test = "=1.0.0-alpha.1"
+inertia-test = "=1.0.0-alpha.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -34,7 +34,7 @@ use axum::{Router, routing::get};
 use inertia_axum::{
     DynamicPage, InertiaApp, RouterInertiaExt as _, SsrRouteExt as _,
 };
-use inertia_axum_test::{TestApp, TestSsr, TestSsrDocument};
+use inertia_test::{TestApp, TestSsr, TestSsrDocument};
 
 #[tokio::test]
 async fn home_uses_ssr_and_dashboard_opts_out() {

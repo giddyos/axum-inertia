@@ -1,0 +1,43 @@
+//! Generated Axum + Inertia application.
+
+use axum::{Router, routing::get};
+use inertia_axum::{DynamicPage, InertiaApp, RouterInertiaExt};
+
+#[cfg(not(debug_assertions))]
+use inertia_embed::{EmbeddedFrontend, embed_frontend};
+
+#[cfg(not(debug_assertions))]
+static FRONTEND: EmbeddedFrontend = embed_frontend! {
+    root: "[[= project.frontend_dir]]/dist",
+    entry: "src/main.ts",
+    public_path: "/build",
+};
+
+async fn home() -> DynamicPage {
+    DynamicPage::new("Home").prop("greeting", "Hello from Axum")
+}
+
+fn inertia() -> Result<InertiaApp, inertia_axum::ConfigError> {
+    #[cfg(debug_assertions)]
+    {
+        InertiaApp::vite("[[= project.frontend_dir]]")
+            .entry("src/main.ts")
+            .dev_server("http://localhost:5173")
+            .build()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        InertiaApp::embedded(&FRONTEND).build()
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let app = Router::new()
+        .route("/", get(home))
+        .with_inertia(inertia()?);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    axum::serve(listener, app).await?;
+    Ok(())
+}

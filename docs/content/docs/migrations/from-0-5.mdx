@@ -115,9 +115,19 @@ strict mode or route policies.
 
 ## 6. Update tests
 
-Use `inertia-axum-test` for page, partial, redirect, validation, flash, merge, rescue,
+Use `inertia-test` for page, partial, redirect, validation, flash, merge, rescue,
 version, and SSR assertions. Generated page keys make prop selection and prop-policy
 assertions compiler-checked.
+
+```toml title="Cargo.toml"
+[dev-dependencies]
+inertia-test = "=1.0.0-alpha.1"
+```
+
+The package was previously named `inertia-axum-test`. Cargo package names cannot
+be preserved through a Rust deprecation alias, so update the dependency key and
+Rust import path. This is the one unavoidable test-crate rename; application
+imports remain available from `inertia-axum`.
 
 ```rust title="tests/todos.rs"
 let page = TestApp::new(router)

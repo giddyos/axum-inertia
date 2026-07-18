@@ -828,6 +828,7 @@ dependencies = [
  "syn 2.0.118",
  "tempfile",
  "thiserror",
+ "toml 0.8.23",
  "which",
 ]
 

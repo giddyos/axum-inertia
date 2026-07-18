@@ -1,12 +1,17 @@
 //! Interactive answer types, populated by the optional interactive feature.
 
-use crate::{framework::Framework, package_manager::PackageManager, ssr::SsrOptions};
+use crate::{
+    framework::Framework, package_manager::PackageManager, server_framework::ServerFramework,
+    ssr::SsrOptions,
+};
 
 /// Answers collected by interactive initialization.
 #[derive(Clone, Debug)]
 pub struct InitAnswers {
     /// Selected framework.
     pub framework: Framework,
+    /// Selected Rust server framework.
+    pub server_framework: ServerFramework,
     /// Selected package manager.
     pub package_manager: PackageManager,
     /// Selected SSR options.

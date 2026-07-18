@@ -1,14 +1,14 @@
 ---
 title: Testing
 description: Test initial pages, deferred requests, and validation redirects in process.
-keywords: [testing, inertia-axum-test]
+keywords: [testing, inertia-test]
 ---
 
 Wrap the same Axum router used by the application in `TestApp`; requests remain in process and return typed assertions.
 
 ```rust title="tests/support/mod.rs"
 use inertia_axum::prelude::*;
-use inertia_axum_test::TestApp;
+use inertia_test::TestApp;
 
 fn test_app() -> TestApp {
     let inertia = InertiaApp::default_root()

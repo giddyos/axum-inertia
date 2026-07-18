@@ -2,6 +2,8 @@
   "title": "Guides",
   "pages": [
     "vite-and-assets",
+    "embedded-frontend",
+    "self-contained-binary",
     "typed-pages-and-props",
     "generated-types",
     "partial-reloads",

@@ -1,0 +1,21 @@
+[package]
+name = "[[= project.package_name]]"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[dependencies]
+inertia-embed = "=[[= versions.inertia_rust]]"
+[[% if server.name == "axum" %]]
+axum = { version = "[[= versions.axum]]", default-features = false, features = ["http1", "tokio"] }
+inertia-axum = "=[[= versions.inertia_rust]]"
+tokio = { version = "[[= versions.tokio]]", features = ["macros", "net", "rt-multi-thread"] }
+[[% elif server.name == "actix-web" %]]
+actix-web = { version = "[[= versions.actix_web]]", default-features = false, features = ["macros"] }
+inertia-actix = "=[[= versions.inertia_rust]]"
+serde_json = "[[= versions.serde_json]]"
+[[% else %]]
+inertia-rocket = "=[[= versions.inertia_rust]]"
+rocket = { version = "[[= versions.rocket]]", default-features = false }
+serde_json = "[[= versions.serde_json]]"
+[[% endif %]]

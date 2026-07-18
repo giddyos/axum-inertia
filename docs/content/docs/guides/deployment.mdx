@@ -4,7 +4,8 @@ description: Build and verify the immutable frontend and Rust artifacts required
 keywords: [production, deployment]
 ---
 
-Deploy the application as an Axum service whose frontend manifest exists before Rust starts.
+Deploy any adapter either with a production directory beside the executable or
+as a self-contained embedded release.
 
 ```bash title="Terminal"
 pnpm --dir frontend install --frozen-lockfile
@@ -13,15 +14,26 @@ cargo build --release --locked
 cargo inertia check --path . --frontend frontend
 ```
 
+For embedding, replace the separate frontend/Rust commands with:
+
+```bash title="Terminal"
+cargo inertia build --release
+```
+
 ## Deployment checklist
 
 1. Commit both lockfiles and install from them.
-2. Build the client with `manifest: true`; package `frontend/dist` with the Rust binary.
+2. Build the client with `manifest: true`; either package `frontend/dist` with
+   a filesystem-mode binary or embed it during the release compile.
 3. Build and package the SSR bundle when SSR is enabled.
 4. Leave `VITE_DEV_SERVER_URL` unset so startup reads the production manifest.
 5. Use encrypted cookies, a production Tower Sessions store, or a bounded custom transient store instead of `MemoryTransient`.
 6. Preserve Inertia request headers and honor `Vary: X-Inertia` at the reverse proxy.
 7. Cache fingerprinted assets as immutable; apply application-specific private/no-cache rules to HTML and page JSON.
 8. Exercise an initial HTML request, an Inertia JSON visit, validation state, and SSR fallback before release.
+
+Embedded mode needs no frontend runtime files, but it increases binary size and
+publishes emitted source maps. It does not provide precompression. See
+[Self-contained binary](/docs/guides/self-contained-binary).
 
 Managed SSR requires its validated Node runtime; external SSR requires reachable health and render endpoints. Continue with [Health and operations](/docs/ssr/health-and-operations) and the complete [deployment-related configuration](/docs/reference/configuration).

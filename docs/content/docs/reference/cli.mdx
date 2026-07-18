@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: Exact cargo inertia init, dev, and check commands, defaults, generated files, and validation limits.
+description: Exact cargo inertia init, dev, build, check, and sync commands and their validation limits.
 ---
 
 `cargo-inertia` is optional project tooling. It is a separate binary crate and is not built by the workspace's default-member commands.
@@ -16,8 +16,9 @@ The executable accepts both `cargo inertia ...` and direct `cargo-inertia ...` i
 ## Command summary
 
 ```text
-cargo inertia init [--framework <svelte|react|vue>] [--package-manager <auto|npm|pnpm|bun>] [--ssr <none|managed-node|external>] [--yes]
+cargo inertia init [--framework <svelte|react|vue>] [--server-framework <axum|actix-web|rocket>] [--package-manager <auto|npm|pnpm|bun>] [--yes]
 cargo inertia dev [--frontend <directory>] [--package-manager <auto|npm|pnpm|bun>] [--host <host>] [--port <port>] [-- <cargo args>]
+cargo inertia build [--release] [--package <package>] [--target <triple>] [-- <cargo args>]
 cargo inertia check [--path <root>] [--frontend <directory>] [--built] [--ssr]
 cargo inertia sync [OUTPUT] [-p <package>] [--workspace] [--layout <auto|single|modules>] [--check] [--clean]
 ```
@@ -26,7 +27,8 @@ Errors are written to stderr with a `cargo inertia:` prefix and a non-zero exit 
 
 ## `init`
 
-`init` creates a minimal Vite frontend at `<path>/frontend`. `--frontend` is required; `--path` defaults to the current directory.
+`init` creates a minimal Vite frontend at `<path>/frontend`. `--framework`
+selects Svelte, React, or Vue; `--frontend` remains its compatibility alias.
 
 | Framework | Inertia adapter | Page file |
 | --- | --- | --- |
@@ -59,8 +61,23 @@ Each generated `Home` imports `Deferred`, renders `greeting` immediately, shows
 `Loading stats…`, and then renders the deferred `projects` and `tasks` values. React
 always uses `.tsx`.
 
-The command refuses to overwrite an existing `<path>/frontend`. After generation it
-prints these next steps:
+Without `--server-framework`, the command preserves the frontend-only behavior
+used when adding Inertia to an existing Rust application. It refuses to
+overwrite `<path>/frontend`.
+
+With `--server-framework axum`, `actix-web`, or `rocket`, `--path` is a new
+project destination. The scaffold includes `Cargo.toml`, `src/main.rs`,
+`inertia.toml`, a frontend, and release instructions. It depends on only the
+selected adapter plus `inertia-embed`: debug builds use Vite, release builds use
+`embed_frontend!`, and Actix Web or Rocket handlers await rendering.
+
+```bash title="Terminal"
+cargo inertia init --path my-app --framework react --server-framework axum --package-manager pnpm --yes
+cargo inertia init --path my-app --framework svelte --server-framework actix-web --package-manager npm --yes
+cargo inertia init --path my-app --framework vue --server-framework rocket --package-manager bun --yes
+```
+
+Frontend-only generation prints these next steps:
 
 ```text
 pnpm --dir frontend install
@@ -68,8 +85,9 @@ pnpm --dir frontend build
 cargo run
 ```
 
-It creates frontend files only; add Rust dependencies and the matching immediate-plus-deferred
-handler from the [quick start](/docs/getting-started/quick-start).
+For a generated full project, use `cargo inertia dev` and
+`cargo inertia build --release`. Direct `cargo build --release` requires the
+configured frontend production build first.
 
 ## `dev`
 
@@ -88,7 +106,34 @@ cargo run
 
 The Rust process receives `VITE_DEV_SERVER_URL=http://127.0.0.1:<port>`. Standard input/output/error are inherited. When either child exits, the CLI stops and waits for the peer; a non-success child status makes the command fail.
 
-`dev` currently invokes npm even if the project lockfile uses another package manager. Run your own two-process supervisor when you need pnpm-specific commands, extra Cargo arguments, TLS, a non-loopback Vite host, or restart/watch behavior beyond what Vite provides.
+Manager selection follows the explicit option, lockfiles, package metadata, and
+installed executables. Arguments after `--` are forwarded to `cargo run`.
+
+## `build`
+
+`build` locates the Cargo workspace root and reads `inertia.toml`. Its ordered
+flow is fixed:
+
+1. run the exact `frontend.build-command` from `frontend.root`;
+2. verify the configured Vite manifest, entry, and entry output;
+3. invoke `cargo build` for the configured package and binary;
+4. select the real executable from Cargo's compiler-artifact messages;
+5. print that path and a reliable asset count/byte summary when available.
+
+Release, package, and target options are passed to Cargo. Arguments following
+`--` retain order and are appended to `cargo build`.
+
+```bash title="Terminal"
+cargo inertia build --release
+cargo inertia build --release --package server
+cargo inertia build --target x86_64-unknown-linux-musl
+cargo inertia build -- --features ssr
+```
+
+The command fails before Cargo when the frontend process fails or the manifest
+is absent or incomplete. Cargo failure, an unknown package/binary, a missing
+executable artifact, and ambiguous output are separate actionable errors. The
+macro embeds files during compilation and never runs a package manager.
 
 ## `check`
 

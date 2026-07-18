@@ -5,6 +5,7 @@ use crate::{
     framework::Framework,
     init::answers::InitAnswers,
     package_manager::PackageManager,
+    server_framework::ServerFramework,
     ssr::{SsrBackend, SsrFailureMode, SsrOptions, SsrPolicy},
 };
 use std::io;
@@ -22,6 +23,18 @@ pub fn collect() -> Result<InitAnswers, CliError> {
         "react" => Framework::React,
         "svelte" => Framework::Svelte,
         _ => Framework::Vue,
+    };
+    let server_framework = match cliclack::select("Which Rust web framework?")
+        .item("axum", "Axum", "")
+        .item("actix", "Actix Web", "")
+        .item("rocket", "Rocket", "")
+        .initial_value("axum")
+        .interact()
+        .map_err(prompt_error)?
+    {
+        "actix" => ServerFramework::ActixWeb,
+        "rocket" => ServerFramework::Rocket,
+        _ => ServerFramework::Axum,
     };
     let package_manager = match cliclack::select("Which package manager?")
         .item("npm", "npm", "")
@@ -89,6 +102,7 @@ pub fn collect() -> Result<InitAnswers, CliError> {
     }
     Ok(InitAnswers {
         framework,
+        server_framework,
         package_manager,
         ssr,
         install,

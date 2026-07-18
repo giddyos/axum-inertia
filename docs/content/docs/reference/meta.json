@@ -3,6 +3,7 @@
   "pages": [
     "index",
     "cargo-features",
+    "inertia-embed",
     "configuration",
     "macros",
     "props-and-policies",

@@ -28,6 +28,7 @@ pub fn run(root: &Path, framework: Framework) -> Result<(), String> {
         root: root.to_path_buf(),
         frontend_dir: root.join("frontend"),
         framework,
+        server_framework: None,
         package_manager: PackageManager::Pnpm,
         install: false,
         ssr: SsrOptions::disabled(),
@@ -41,24 +42,49 @@ pub fn run_options(
     output: &mut impl Write,
 ) -> Result<(), CliError> {
     let plan = render::render(options)?;
-    validate::validate(&plan, options.framework)?;
+    validate::validate(&plan, options.framework, options.server_framework)?;
     write::commit(&plan)?;
-    writeln!(
-        output,
-        "Created {} frontend in {}",
-        match options.framework {
-            Framework::React => "react",
-            Framework::Svelte => "svelte",
-            Framework::Vue => "vue",
-        },
-        plan.destination.display()
-    )?;
-    writeln!(
-        output,
-        "\nNext steps:\n  {} run install\n  {} run build\n  cargo run",
-        options.package_manager.executable(),
-        options.package_manager.executable()
-    )?;
+    if let Some(server) = options.server_framework {
+        writeln!(
+            output,
+            "Created {} + {} project in {}",
+            match options.framework {
+                Framework::React => "React",
+                Framework::Svelte => "Svelte",
+                Framework::Vue => "Vue",
+            },
+            server.display_name(),
+            plan.destination.display()
+        )?;
+        writeln!(
+            output,
+            "\nNext steps:\n  cd {}\n  {} --dir {} install\n  cargo inertia dev\n  cargo inertia build --release",
+            plan.destination.display(),
+            options.package_manager.executable(),
+            options
+                .frontend_dir
+                .strip_prefix(&options.root)
+                .unwrap_or(&options.frontend_dir)
+                .display()
+        )?;
+    } else {
+        writeln!(
+            output,
+            "Created {} frontend in {}",
+            match options.framework {
+                Framework::React => "react",
+                Framework::Svelte => "svelte",
+                Framework::Vue => "vue",
+            },
+            plan.destination.display()
+        )?;
+        writeln!(
+            output,
+            "\nNext steps:\n  {} run install\n  {} run build\n  cargo run",
+            options.package_manager.executable(),
+            options.package_manager.executable()
+        )?;
+    }
     Ok(())
 }
 
@@ -118,12 +144,15 @@ pub fn run_args(args: args::InitArgs, output: &mut impl Write) -> Result<(), Cli
         root,
         frontend_dir: destination,
         framework,
+        server_framework: args
+            .server_framework
+            .or_else(|| answers.as_ref().map(|answer| answer.server_framework)),
         package_manager,
         install,
         ssr,
     };
     let plan = render::render(&options)?;
-    validate::validate(&plan, options.framework)?;
+    validate::validate(&plan, options.framework, options.server_framework)?;
     if args.dry_run {
         writeln!(
             output,
@@ -160,6 +189,8 @@ pub fn run_args(args: args::InitArgs, output: &mut impl Write) -> Result<(), Cli
         "{}",
         crate::output::completion(
             options.framework,
+            options.server_framework,
+            &options.root,
             &options.frontend_dir,
             options.package_manager,
             options.install,

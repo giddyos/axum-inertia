@@ -15,10 +15,22 @@ without a separate JSON API.
   embedded production frontend
 - In-process page, redirect, deferred-data, cookie, and SSR testing
 
-Choose `inertia-axum` for Axum, `inertia-actix` for Actix Web, or
-`inertia-rocket` for Rocket. All three adapters delegate request negotiation,
-prop selection, assets, transient data, and SSR to the same `inertia-core`
-runtime and pass the same conformance suite.
+Choose one server adapter; applications do not need a direct `inertia-core`
+dependency:
+
+| Framework | Dependency | Handler shape | Installation |
+| --- | --- | --- | --- |
+| Axum | `inertia-axum = "1.0.0-alpha.1"` | Return `DynamicPage` or another pending response | `RouterInertiaExt::with_inertia` |
+| Actix Web | `inertia-actix = "1.0.0-alpha.1"` | Extract `Inertia`, then await `render` | `InertiaMiddleware`, app data, and `assets` |
+| Rocket | `inertia-rocket = "1.0.0-alpha.1"` | Guard on `Inertia<'_>`, then await `render` | Attach `InertiaFairing` |
+
+All three delegate request negotiation, prop selection, assets, transient data,
+and SSR to the same `inertia-core` runtime and pass the same conformance suite.
+
+Generate a complete project with `cargo inertia init --path my-app
+--framework react --server-framework axum --yes`. In a configured project,
+`cargo inertia build --release` builds Vite first and prints the real
+self-contained executable path reported by Cargo.
 
 ## Axum
 
@@ -118,8 +130,10 @@ fn rocket() -> _ {
 ```
 
 - [Quick start](docs/content/docs/getting-started/quick-start.mdx)
-- [Actix Web setup](docs/content/docs/getting-started/actix-web.mdx)
-- [Rocket setup](docs/content/docs/getting-started/rocket.mdx)
+- [Axum framework guide](docs/content/docs/frameworks/axum.mdx)
+- [Actix Web framework guide](docs/content/docs/frameworks/actix.mdx)
+- [Rocket framework guide](docs/content/docs/frameworks/rocket.mdx)
+- [Self-contained release binaries](docs/content/docs/guides/self-contained-binary.mdx)
 - [Runnable examples](examples)
 - [Rust API documentation](https://docs.rs/inertia-axum/latest/inertia_axum/)
 - [Migration from 0.5](docs/content/docs/migrations/from-0-5.mdx)

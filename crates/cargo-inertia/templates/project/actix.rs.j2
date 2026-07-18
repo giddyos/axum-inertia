@@ -1,0 +1,53 @@
+//! Generated Actix Web + Inertia application.
+
+use actix_web::{App, HttpServer, web};
+use inertia_actix::{Inertia, InertiaApp, InertiaMiddleware, Result as InertiaResult, assets};
+
+#[cfg(not(debug_assertions))]
+use inertia_embed::{EmbeddedFrontend, embed_frontend};
+
+#[cfg(not(debug_assertions))]
+static FRONTEND: EmbeddedFrontend = embed_frontend! {
+    root: "[[= project.frontend_dir]]/dist",
+    entry: "src/main.ts",
+    public_path: "/build",
+};
+
+async fn home(inertia: Inertia) -> InertiaResult {
+    inertia
+        .render(
+            "Home",
+            serde_json::json!({ "greeting": "Hello from Actix Web" }),
+        )
+        .await
+}
+
+fn inertia() -> Result<InertiaApp, inertia_actix::ConfigError> {
+    #[cfg(debug_assertions)]
+    {
+        InertiaApp::vite("[[= project.frontend_dir]]")
+            .entry("src/main.ts")
+            .dev_server("http://localhost:5173")
+            .build()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        InertiaApp::embedded(&FRONTEND).build()
+    }
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let inertia = inertia().map_err(std::io::Error::other)?;
+    HttpServer::new(move || {
+        App::new()
+            .route("/", web::get().to(home))
+            .app_data(web::Data::new(inertia.clone()))
+            .wrap(InertiaMiddleware::new(inertia.clone()))
+            .configure(assets(inertia.clone()))
+    })
+    .bind(("127.0.0.1", 3000))?
+    .run()
+    .await
+}

@@ -1,0 +1,35 @@
+# [[= project.package_name]]
+
+An Inertia.js application using [[= server.display_name]] and [[= framework.name]].
+
+## Development
+
+Install frontend dependencies, then run Vite and Rust together:
+
+```sh
+cd [[= project.frontend_dir]]
+[[= package_manager.executable]] install
+cd ..
+cargo inertia dev
+```
+
+## Self-contained release
+
+`cargo inertia build` always builds the configured frontend first, verifies its
+Vite manifest, and then compiles the Rust binary that embeds the generated files:
+
+```sh
+cargo inertia build --release
+```
+
+The command prints the actual executable path reported by Cargo. If you invoke
+Cargo directly instead, build the frontend first:
+
+```sh
+[[= package_manager.executable]] --dir [[= project.frontend_dir]] run build
+cargo build --release
+```
+
+The release executable serves `/build` without reading `[[= project.frontend_dir]]/dist`
+at runtime. Source maps are embedded when Vite emits them; decide whether production
+source maps should be public in `[[= project.frontend_dir]]/vite.config.ts`.

@@ -1,14 +1,14 @@
 ---
 title: cargo inertia
-description: Scaffold a minimal frontend, run development processes, and check literal component declarations.
+description: Scaffold framework projects, coordinate production builds, supervise development, and validate contracts.
 keywords:
   - cargo inertia
   - CLI
 ---
 
-`cargo-inertia` is optional project tooling. It creates small Vite
-frontend, run Vite beside `cargo run`, and compare literal typed-page components with
-frontend files. It does not replace understanding the generated setup.
+`cargo-inertia` is optional project tooling. It creates Vite frontends or
+complete single-adapter projects, runs Vite beside `cargo run`, coordinates
+frontend-first embedded release builds, and validates typed-page contracts.
 
 ## Install the command
 
@@ -20,15 +20,19 @@ cargo install cargo-inertia --version 1.0.0-alpha.1 --locked
 
 ```bash
 cargo inertia init
-cargo inertia init --framework react --package-manager pnpm --ssr managed-node --install --yes
+cargo inertia init --path my-app --framework react --server-framework axum --package-manager pnpm --install --yes
+cargo inertia init --path my-app --framework svelte --server-framework actix-web --package-manager bun --yes
+cargo inertia init --path my-app --framework vue --server-framework rocket --package-manager npm --yes
+cargo inertia init --framework react --package-manager pnpm --yes
 cargo inertia init --framework svelte --package-manager bun --ssr none --yes
 cargo inertia init --framework vue --package-manager npm --ssr external --ssr-endpoint http://127.0.0.1:13714 --yes
 ```
 
-The command always creates `<path>/frontend` and refuses to overwrite an existing
-directory. It writes `package.json`, `vite.config.ts`, `src/main.ts`, and one
-`src/Pages/Home` component. Svelte also receives the preprocessing configuration,
-TypeScript settings, and pnpm build-script policy required by the maintained adapter.
+The final command keeps compatibility mode and creates only
+`<path>/frontend`. Selecting a server framework creates a new complete project
+at `--path`; it refuses to overwrite that destination. Full projects include one
+Rust adapter, framework-specific handler and installation code, matching
+`inertia.toml`, debug Vite configuration, and a release-only embedded provider.
 
 The generated project:
 
@@ -36,10 +40,11 @@ The generated project:
   dependencies and commit the resulting lockfile for reproducible builds.
 - Supports CSR, managed Node SSR, and external SSR. Managed SSR needs Node 22.12+; Bun only runs package scripts and never replaces Node as the managed SSR runtime.
 - Never overwrites an existing destination. Auto manager selection uses lockfiles and package metadata; conflicting lockfiles require an explicit choice.
-- Creates no Rust manifest, router, handler, or root document.
+- In frontend-only mode, creates no Rust manifest, router, handler, or root document.
+- In full-project mode, never adds a direct `inertia-core` dependency or unused server adapters.
 
 Use it as a starting point, then compare the maintained
-[framework examples](/docs/frontend) for production asset and SSR setup.
+[server framework guides](/docs/frameworks/axum) for production and SSR setup.
 
 ## Run the development processes
 
@@ -56,9 +61,21 @@ and plain `cargo run` in the current directory. Only the Cargo child receives
 `VITE_DEV_SERVER_URL=http://127.0.0.1:<port>`. When either child exits, the command
 terminates its peer.
 
-There is no pnpm selection, Cargo argument forwarding, or package selection. In a
-pnpm workspace or multi-binary project, run the two commands yourself and set
-`VITE_DEV_SERVER_URL` explicitly.
+Package-manager detection supports npm, pnpm, and Bun. Cargo arguments after
+`--` are forwarded to `cargo run`.
+
+## Build a self-contained release
+
+```bash title="Terminal"
+cargo inertia build --release
+cargo inertia build -- --features ssr
+```
+
+The command reads root `inertia.toml`, executes the configured frontend build,
+verifies the manifest, and then invokes Cargo. The printed executable is taken
+from Cargo's artifact evidence rather than assembled from assumptions. See
+[Self-contained binary](/docs/guides/self-contained-binary) for configuration,
+cross-compilation, binary size, and deployment checks.
 
 ## Check component declarations
 

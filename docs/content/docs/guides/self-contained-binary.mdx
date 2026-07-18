@@ -1,0 +1,71 @@
+---
+title: Self-contained binary
+description: Coordinate Vite and Cargo builds, then deploy one executable with no frontend runtime files.
+---
+
+A self-contained release uses `cargo inertia build` to make frontend generation
+an explicit predecessor of Rust compilation. The proc macro never starts npm,
+pnpm, Bun, or Vite.
+
+## Configure the build
+
+Create `inertia.toml` at the Cargo workspace root:
+
+```toml title="inertia.toml"
+[frontend]
+root = "frontend"
+build-command = ["pnpm", "run", "build"]
+build-dir = "frontend/dist"
+manifest = "frontend/dist/.vite/manifest.json"
+entry = "src/main.ts"
+public-path = "/build"
+
+[rust]
+package = "server"
+binary = "server"
+```
+
+Paths resolve from the located workspace root. The command runs the exact
+configured frontend program from `frontend.root`, verifies the configured entry
+and emitted file in the manifest, and only then invokes Cargo.
+
+```bash title="Terminal"
+cargo inertia build
+cargo inertia build --release
+cargo inertia build --release --package server
+cargo inertia build --target x86_64-unknown-linux-musl
+cargo inertia build -- --features ssr
+```
+
+Release, package, and target options are passed to Cargo. Every argument after
+`--` is appended in its original order. Cargo's JSON artifact evidence supplies
+the executable path printed at the end, so custom target directories and target
+triples are not guessed. The command also reports asset count and uncompressed
+bytes when the directory can be measured reliably.
+
+## Deploy and verify
+
+Copy only the printed executable into an empty directory and start it there.
+Request `/`, extract each generated stylesheet and script URL, then request
+those URLs. Finally hide or delete the original `frontend/dist` and repeat the
+requests. The maintained Axum, Actix Web, and Rocket embedded examples perform
+this proof in CI with isolated ports and process cleanup.
+
+No Node runtime, package manager, manifest, or frontend directory is needed for
+browser assets after compilation. Managed SSR is a separate concern and still
+requires its renderer runtime; external SSR still requires its service.
+
+## Operational implications
+
+- The executable grows by approximately the uncompressed frontend output.
+- Source maps are public embedded assets when Vite emits them.
+- ETags, deployment versions, HEAD, 304, and cache policy are deterministic.
+- Compression and content negotiation must be provided by the application,
+  reverse proxy, or CDN; the embedding crate does not precompress.
+- A reverse proxy must preserve Inertia headers and route the configured
+  `public-path` without an inconsistent prefix rewrite.
+- Changing frontend bytes requires rebuilding and redeploying the executable.
+
+For direct `cargo build --release`, run the frontend build first. A missing or
+stale manifest is a compile-time error rather than a runtime filesystem
+fallback.

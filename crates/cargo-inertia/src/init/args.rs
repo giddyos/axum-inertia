@@ -7,6 +7,7 @@ use clap::Args;
 use crate::{
     framework::Framework,
     package_manager::PackageManagerChoice,
+    server_framework::ServerFramework,
     ssr::{SsrFailureMode, SsrMode, SsrPolicy},
 };
 
@@ -17,6 +18,9 @@ pub struct InitArgs {
     /// Frontend framework; `--frontend` remains a compatibility alias.
     #[arg(long, visible_alias = "frontend")]
     pub framework: Option<Framework>,
+    /// Generate a complete project for this Rust web framework.
+    #[arg(long, visible_aliases = ["backend", "adapter"])]
+    pub server_framework: Option<ServerFramework>,
     /// Package manager to use or automatically detect.
     #[arg(long, default_value = "auto")]
     pub package_manager: PackageManagerChoice,

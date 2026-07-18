@@ -5,10 +5,17 @@ use std::{
     path::{Component, Path},
 };
 
-use crate::{error::CliError, framework::Framework, init::plan::ScaffoldPlan};
+use crate::{
+    error::CliError, framework::Framework, init::plan::ScaffoldPlan,
+    server_framework::ServerFramework,
+};
 
 /// Validates safe paths and generated source invariants before writing anything.
-pub fn validate(plan: &ScaffoldPlan, framework: Framework) -> Result<(), CliError> {
+pub fn validate(
+    plan: &ScaffoldPlan,
+    framework: Framework,
+    server: Option<ServerFramework>,
+) -> Result<(), CliError> {
     let mut paths = BTreeSet::new();
     for file in &plan.files {
         validate_relative_path(&file.relative_path)?;
@@ -30,7 +37,7 @@ pub fn validate(plan: &ScaffoldPlan, framework: Framework) -> Result<(), CliErro
     let package = plan
         .files
         .iter()
-        .find(|file| file.relative_path == Path::new("package.json"))
+        .find(|file| file.relative_path.ends_with("package.json"))
         .ok_or_else(|| CliError::Message("missing package.json".to_owned()))?;
     let package_text = std::str::from_utf8(&package.contents)
         .map_err(|_| CliError::UnsafeOutputPath(package.relative_path.clone()))?;
@@ -54,7 +61,7 @@ pub fn validate(plan: &ScaffoldPlan, framework: Framework) -> Result<(), CliErro
     let vite = plan
         .files
         .iter()
-        .find(|file| file.relative_path == Path::new("vite.config.ts"))
+        .find(|file| file.relative_path.ends_with("vite.config.ts"))
         .ok_or_else(|| CliError::Message("missing vite.config.ts".to_owned()))?;
     let vite_text = std::str::from_utf8(&vite.contents)
         .map_err(|_| CliError::UnsafeOutputPath(vite.relative_path.clone()))?;
@@ -63,7 +70,75 @@ pub fn validate(plan: &ScaffoldPlan, framework: Framework) -> Result<(), CliErro
             "generated Vite configuration must use rolldownOptions".to_owned(),
         ));
     }
+    if let Some(server) = server {
+        validate_server_project(plan, server)?;
+    }
     Ok(())
+}
+
+fn validate_server_project(plan: &ScaffoldPlan, server: ServerFramework) -> Result<(), CliError> {
+    let cargo = text_file(plan, "Cargo.toml")?;
+    let source = text_file(plan, "src/main.rs")?;
+    let configuration = text_file(plan, "inertia.toml")?;
+    let selected = server.adapter_crate();
+    let adapters = ["inertia-axum", "inertia-actix", "inertia-rocket"];
+    if !cargo.contains(selected)
+        || adapters
+            .into_iter()
+            .filter(|adapter| *adapter != selected)
+            .any(|adapter| cargo.contains(adapter))
+        || cargo.contains("inertia-core")
+    {
+        return Err(CliError::Message(
+            "generated Rust dependencies do not match the selected adapter".to_owned(),
+        ));
+    }
+    for required in [
+        "#[cfg(not(debug_assertions))]",
+        "embed_frontend!",
+        "InertiaApp::vite",
+        "InertiaApp::embedded",
+    ] {
+        if !source.contains(required) {
+            return Err(CliError::Message(format!(
+                "generated server source is missing `{required}`"
+            )));
+        }
+    }
+    if matches!(server, ServerFramework::ActixWeb | ServerFramework::Rocket)
+        && !source.contains(".await")
+    {
+        return Err(CliError::Message(
+            "generated Actix Web and Rocket handlers must await rendering".to_owned(),
+        ));
+    }
+    for required in [
+        "[frontend]",
+        "build-command",
+        "build-dir",
+        "manifest",
+        "public-path",
+        "[rust]",
+        "package",
+        "binary",
+    ] {
+        if !configuration.contains(required) {
+            return Err(CliError::Message(format!(
+                "generated inertia.toml is missing `{required}`"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn text_file<'a>(plan: &'a ScaffoldPlan, path: &str) -> Result<&'a str, CliError> {
+    let file = plan
+        .files
+        .iter()
+        .find(|file| file.relative_path == Path::new(path))
+        .ok_or_else(|| CliError::Message(format!("generated project is missing {path}")))?;
+    std::str::from_utf8(&file.contents)
+        .map_err(|_| CliError::Message(format!("generated {path} is not UTF-8")))
 }
 
 /// Rejects output paths that could escape staging.

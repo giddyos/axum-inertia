@@ -109,8 +109,15 @@ jobs:
       - run: mise run ci:ssr-node-lifecycle
 
   embedded-example:
-    name: Self-contained embedded example
+    name: Self-contained embedded example (${{ matrix.crate }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - axum-embedded
+          - actix-embedded
+          - rocket-embedded
     steps:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
@@ -124,7 +131,7 @@ jobs:
           shared-key: stable
           workspaces: ". -> target"
           save-if: false
-      - run: mise run ci:embedded
+      - run: mise run ci:embedded -- "${{ matrix.crate }}"
 
   production-example:
     name: Production example SSR (${{ matrix.crate }})

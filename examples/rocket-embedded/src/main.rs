@@ -1,7 +1,9 @@
 //! Rocket application with Vite development and embedded release assets.
 
 use inertia_rocket::{Inertia, InertiaApp, InertiaFairing, Result as InertiaResult};
+use rocket::fairing::AdHoc;
 use serde::Serialize;
+use std::{io::Write as _, net::SocketAddr};
 
 #[cfg(not(debug_assertions))]
 use inertia_embed::{EmbeddedFrontend, embed_frontend};
@@ -48,8 +50,27 @@ fn inertia() -> Result<InertiaApp, inertia_rocket::ConfigError> {
 #[rocket::launch]
 fn rocket() -> _ {
     let inertia = inertia().expect("valid Inertia configuration");
+    let address = std::env::var("ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
+    let address = address
+        .parse::<SocketAddr>()
+        .expect("ADDR must contain an IP socket address");
+    let figment = rocket::Config::figment()
+        .merge(("address", address.ip()))
+        .merge(("port", address.port()));
 
-    rocket::build()
+    rocket::custom(figment)
         .attach(InertiaFairing::new(inertia))
+        .attach(AdHoc::on_liftoff("Report listening address", |rocket| {
+            Box::pin(async move {
+                println!(
+                    "LISTENING {}:{}",
+                    rocket.config().address,
+                    rocket.config().port
+                );
+                std::io::stdout()
+                    .flush()
+                    .expect("listening address must flush");
+            })
+        }))
         .mount("/", rocket::routes![index])
 }

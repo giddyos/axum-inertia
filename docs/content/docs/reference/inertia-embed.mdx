@@ -1,0 +1,48 @@
+---
+title: inertia-embed reference
+description: Public types, macro inputs, generated behavior, and limitations of the compile-time asset crate.
+---
+
+`inertia-embed` is framework-neutral. Add it beside exactly one server adapter
+when a release binary should own its browser assets.
+
+## Public API
+
+| Item | Purpose |
+| --- | --- |
+| `embed_frontend!` | Validates a Vite build and generates a static provider. |
+| `EmbeddedFrontend` | Implements the shared `AssetProvider` contract. |
+| `EmbeddedAsset` | Describes one sorted static asset and its precomputed metadata. |
+
+The macro accepts three required fields:
+
+```rust title="src/main.rs"
+static FRONTEND: inertia_embed::EmbeddedFrontend =
+    inertia_embed::embed_frontend! {
+        root: "frontend/dist",
+        entry: "src/main.ts",
+        public_path: "/build",
+    };
+```
+
+`root` is relative to `CARGO_MANIFEST_DIR`. `entry` must identify a Vite manifest
+entry, and `public_path` must be one normalized absolute URL prefix. Macro
+expansion resolves its runtime crate through the selected Axum, Actix Web, or
+Rocket adapter when possible, so users do not need a direct `inertia-core`
+dependency.
+
+## Generated provider behavior
+
+`EmbeddedFrontend::version()` returns a deterministic compile-time digest.
+`render_tags(...)` returns the entry's ordered CSS and module tags.
+`source()` exposes a static `AssetSource`, and `public_path()` returns the macro
+prefix. Adapters preserve response status and headers from that source.
+
+Each `EmbeddedAsset` contains its normalized path, static bytes, content type,
+ETag, immutable-cache decision, and optional encoding metadata. The current
+macro emits uncompressed assets only; optional encoding metadata is reserved
+for providers that actually supply encoded bytes and must not be read as a
+precompression guarantee.
+
+See [Embedded frontend](/docs/guides/embedded-frontend) for safety limits,
+caching, source maps, SSR, and complete debug/release setup.

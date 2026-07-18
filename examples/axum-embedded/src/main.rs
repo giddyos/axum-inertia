@@ -2,6 +2,7 @@
 
 use axum::{Router, routing::get};
 use inertia_axum::{DynamicPage, InertiaApp, RouterInertiaExt, page};
+use std::io::Write as _;
 
 #[cfg(not(debug_assertions))]
 use inertia_embed::{EmbeddedFrontend, embed_frontend};
@@ -42,6 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = std::env::var("ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
     let listener = tokio::net::TcpListener::bind(address).await?;
     println!("LISTENING {}", listener.local_addr()?);
+    std::io::stdout().flush()?;
     axum::serve(listener, app).await?;
     Ok(())
 }

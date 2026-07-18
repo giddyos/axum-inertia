@@ -40,7 +40,7 @@ type-generation features forward to `inertia-core`.
 | `ssr` | No | Hyper client support, `http-body-util`, Tokio process/runtime support, and Tower timeout/concurrency/load-shed utilities | Adds managed and external SSR, route policies, health models, `.ssr(...)`, and asynchronous `.start()`. |
 | `garde` | No | No dependency | Marker used only by the repository's integration-test matrix. It is not required to derive a Garde-backed `InertiaForm`; the application dependency on `garde` is what generated code uses. |
 | `validator` | No | No dependency | Marker used only by the repository's integration-test matrix. It is not required to derive a Validator-backed `InertiaForm`; the application dependency on `validator` is what generated code uses. |
-| `test-support` | No | No dependency | Reserved marker currently used by `inertia-axum-test`; it adds no API or runtime behavior. |
+| `test-support` | No | No dependency | Reserved marker currently used by `inertia-test`; it adds no API or runtime behavior. |
 
 ## Common combinations
 
@@ -111,7 +111,7 @@ The adapter hashes the supplied key material with SHA-512 before constructing th
 
 ## Test crate feature unification
 
-`inertia-axum-test` depends on `inertia-axum` with its defaults plus `ssr` and `test-support`. Cargo unifies those features for the test build. This makes SSR test helpers available even if the application dependency does not select `ssr` in its normal dependency set.
+`inertia-test` depends on `inertia-axum` with its defaults plus `ssr` and `test-support`. Cargo unifies those features for the test build. This makes SSR test helpers available even if the application dependency does not select `ssr` in its normal dependency set.
 
 See [configuration](/docs/reference/configuration) for the runtime defaults introduced by each integration.
 
